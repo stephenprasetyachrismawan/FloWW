@@ -31,7 +31,8 @@ dengan **Obsidian sebagai brain per workspace**. Odoo jadi preset pertama; arsit
 | Topik | Keputusan |
 |---|---|
 | Workspace | **1 workspace = 1 folder repo**. Kanban, config, DB, brain semuanya per workspace |
-| Config | **Satu file per orang**: `.floww/workspace.toml` (gitignored). Tidak ada config yang di-commit |
+| Config | **Dua lapis.** `brain/_floww/team.toml` = aturan kerja tim (shared via `floww/brain`): preset, base branch, pola branch, format commit, skill per step, batas loop, template PRD, bahasa AI. `.floww/workspace.toml` = per orang (gitignored): DB lokal, port, venv, launch config, auth & model AI. Lokal boleh override team |
+| Edit rules | **Semua anggota boleh ubah, dengan jejak**: tiap perubahan rule = commit sendiri di `floww/brain` (author + alasan), tampil di Team activity. Perubahan rule oleh AI selalu minta konfirmasi manusia |
 | Brain | **Orphan branch `floww/brain`**, worktree di `.floww/brain/`. Semua anggota auto commit + push. Note agregat di-regenerate saat konflik; konflik di note manual → tampilkan diff, user pilih |
 | Git host | **GitHub** (trait `GitHost`) |
 | Base branch | Step 4 selalu baca `base_branch` (preprod) terbaru setelah `git fetch`. Kalau preprod belum ada → dibuat saat setup |
@@ -148,17 +149,37 @@ Step 5, 11, dan update graph berjalan **paralel di background**.
 ~/.config/floww/app.toml      # first run: auth AI, model default, daftar workspace
 ```
 
-Contoh `workspace.toml`:
+Contoh `brain/_floww/team.toml` (shared):
 
 ```toml
 [workspace]
-name = "acme-odoo"
 preset = "odoo"
-language = "id"                # bahasa output AI (PRD, brain)
+language = "id"
 
 [git]
 base_branch = "preprod"
 feature_branch = "feature/{prd_id}-{slug}"
+commit_format = "odoo"
+
+[steps.prd]
+skills = ["grill-me"]
+template = "_floww/templates/prd.md"
+[steps.develop]
+skills = ["tdd", "sdd"]
+max_iterations = 5
+max_minutes = 30
+[steps.test]
+full_suite = false
+```
+
+Contoh `.floww/workspace.toml` (per orang; key yang sama dengan team.toml berarti override):
+
+```toml
+[workspace]
+name = "acme-odoo"
+initials = "SP"                # prefix ID PRD
+
+[git]
 github_token = "keyring:floww-github"
 
 [run]
@@ -171,32 +192,69 @@ develop = "opus"
 brain = "haiku"
 commit = "haiku"
 
-[steps.prd]
-skills = ["grill-me"]
-[steps.develop]
-skills = ["tdd", "sdd"]
-max_iterations = 5
-max_minutes = 30
-[steps.test]
-full_suite = false
-
 [budget]
 per_prd_usd = 0                # 0 = tanpa batas
 ```
 
 ### Brain (vault Obsidian)
 
+Brain terdiri dari beberapa **sub-brain**. Prinsipnya: semua isinya harus bisa dibaca dan dipahami manusia, dan AI juga mencatat **apa yang sudah dan belum dipahami manusia** supaya AI tahu celahnya.
+
 ```
 brain/
-├── index.md                  # di-generate ulang
-├── requirements/<id>.md
+├── index.md                       # di-generate ulang
+├── _floww/                        # aturan kerja tim (shared)
+│   ├── team.toml
+│   ├── templates/prd.md
+│   └── .counters/<user>.json      # counter ID PRD per user
+├── requirements/<id>.md           # request mentah dari user field
 ├── prd/<id>.md
-├── features/<feature>.md     # fitur → subfitur (wikilinks)
-├── modules/<module>.md       # model, field, _inherit, view
-├── flows/<business-flow>.md
-├── changes/<prd-id>.md       # perubahan kode + migration
-├── skills/scans/<skill>.md   # hasil skillspector
-└── graph/                    # output graphify
+├── decisions/<prd-id>.md          # keputusan grill-me: pertanyaan, opsi, rekomendasi AI, pilihan manusia, alasan
+├── opinions/<topic>.md            # pendapat / preferensi manusia (mis. "lebih suka constraint di model, bukan di view")
+├── rules/<rule>.md                # business rules
+├── flows/<business-flow>.md       # flow normal (order-to-cash, procure-to-pay, ...)
+├── understanding/
+│   ├── people/<user>.md           # yang dikuasai, yang masih ragu, yang belum tahu
+│   └── team.md                    # peta gabungan + area yang tidak ada orang paham
+├── features/<feature>.md          # fitur → subfitur
+├── modules/<module>.md            # model, field, _inherit, view
+├── changes/<prd-id>.md            # perubahan kode + migration
+├── skills/scans/<skill>.md        # hasil skillspector
+└── graph/                         # output graphify
+```
+
+| Sub-brain | Isi | Sumber | Dipakai untuk |
+|---|---|---|---|
+| `decisions/` | Tiap pertanyaan grill-me: opsi, rekomendasi AI + alasan, pilihan manusia, alasan manusia (kalau ada), tanggal, siapa | Otomatis dari grill-me | Konteks PRD berikutnya, mencegah pertanyaan yang sama diulang |
+| `opinions/` | Preferensi & pendapat manusia yang bukan aturan bisnis | Jawaban "Other", hint, catatan feedback, edit PRD manual | Rekomendasi grill & gaya kode menyesuaikan tim |
+| `rules/` | Pernyataan aturan, alasan bisnis, sumber (PRD id), tempat ditegakkan (model/method/constraint), test yang menjaga | AI ekstrak dari PRD saat approve + dari kode saat graph build | Grill & develop wajib membaca rules terkait; peringatan kalau perubahan melanggar rule |
+| `flows/` | Langkah flow normal + rules dan modul yang terlibat | AI ringkas dari kode, PRD, dan jawaban grill | Konteks request baru, penjelasan ke manusia |
+| `understanding/` | Per orang: paham / ragu / belum tahu, per topik; tim: siapa paham apa, area tanpa pemilik | Disimpulkan AI dari sinyal, **selalu dikonfirmasi** manusia | Lihat di bawah |
+
+**Mencatat pemahaman manusia**
+- Sinyal: jawaban "Other" atau "tidak tahu" di grill, pertanyaan balik, catatan feedback human test, hint ke AI, PRD yang diedit manual.
+- AI tidak mencatat diam-diam. Tiap kesimpulan tampil sebagai kartu kecil: *"Saya catat: kamu belum yakin soal rantai backorder. Benar?"* → **Ya / Tidak / Ubah**.
+
+**Memakai celah pemahaman**
+1. **Grill-me** menyertakan pertanyaan untuk menutup celah saat PRD menyentuh topik itu, didahului penjelasan singkat.
+2. **PRD & human test** diberi kotak *"Konteks: kenapa begini"* untuk topik yang ditandai belum dipahami pembaca.
+3. **Peringatan saat AI ragu**: kalau AI menyentuh area yang tidak dipahami siapa pun di tim (`understanding/team.md`), AI meminta konfirmasi lebih ketat sebelum lanjut.
+
+Contoh `rules/no-double-invoice.md`:
+
+```markdown
+---
+type: rule
+status: active
+source: [[prd/SP-012]]
+enforced_in: sale_custom / sale.order.line._compute_qty_to_invoice
+tests: test_cancel_then_redeliver_invoices_once, test_backorder_twice
+flows: [[flows/order-to-cash]]
+---
+# Qty yang sudah ditagih tidak boleh ditagih lagi
+
+**Kenapa:** 7 kasus invoice dobel di Oktober (Rp 41,8 juta).
+**Berlaku:** semua SO dengan pengiriman parsial, batal, atau backorder.
 ```
 
 ---
@@ -221,6 +279,7 @@ brain/
 ## 6. Desain UI
 
 ### Gaya
+- **Font: Anthropic Sans / Serif / Mono** dipanggil lewat `local()` dari font yang terpasang di mesin user, dengan fallback font terbuka. File font **tidak** dibundel atau di-commit, karena repo sumbernya tidak punya lisensi dan hak fontnya milik Anthropic.
 - **Ramah non-teknis**: lapang, kartu besar, bahasa sederhana.
 - **Light default** + dark mode. Aksen **indigo**.
 - Status selalu warna + ikon + teks: hijau = selesai, amber = needs you, biru = AI working, merah = gagal.
@@ -242,7 +301,7 @@ brain/
 
 - **Workspace switcher** kiri atas: nama, path, jumlah "needs you". Item "Add workspace".
 - **Board**: kanban.
-- **Brain & Graph**: browser note + graph interaktif (react-flow/cytoscape) + "Open vault in Obsidian".
+- **Brain & Graph**: tab per sub-brain (Decisions, Rules, Flows, Opinions, Understanding, Graph) + "Open vault in Obsidian". Kartu konfirmasi pemahaman muncul di sini dan di PRD terkait.
 - **Skills**: skill terinstall, install baru + hasil skillspector, mapping skill per step.
 - **Runs & DB lock**: proses Odoo, port, pemegang lock + antrean, log server.
 - **Settings**: form untuk `workspace.toml` (git, run, model per step, batas loop/biaya).

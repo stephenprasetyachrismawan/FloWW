@@ -2,7 +2,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
 /* Layout: desktop window frame → sidebar nav + content; kanban board, fullscreen PRD detail */
 :root{
@@ -12,8 +12,10 @@
   --info:#2459D6; --info-soft:#E4ECFC; --bad:#B42323; --bad-soft:#FBE5E5;
   --code:#F6F5FB; --add:#E3F4E8; --del:#FBE7E7;
   --shadow:0 1px 2px rgba(28,26,51,.06),0 10px 30px rgba(28,26,51,.07);
-  --font:"Plus Jakarta Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  /* Anthropic fonts come from the viewer's own installed copy (local), never bundled */
+  --font:"Anthropic Sans","AnthropicSans","Plus Jakarta Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --serif:"Anthropic Serif","AnthropicSerif","Source Serif 4",ui-serif,Georgia,serif;
+  --mono:"Anthropic Mono","AnthropicMono","JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --r:14px; --r-sm:9px;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
@@ -80,7 +82,7 @@ button{cursor:pointer}
 /* main */
 .main{flex:1;min-width:0;min-height:0;overflow:auto;display:flex;flex-direction:column}
 .head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:20px 24px 14px}
-.head h1{font-size:22px;margin:0;letter-spacing:-.02em;text-wrap:balance}
+.head h1{font-family:var(--serif);font-weight:600;font-size:25px;margin:0;letter-spacing:-.01em;text-wrap:balance}
 .head .sub{color:var(--muted);font-size:13px}
 .head .grow{flex:1}
 .content{padding:0 24px 28px;display:flex;flex-direction:column;gap:16px;min-width:0}
@@ -150,7 +152,7 @@ button{cursor:pointer}
 /* detail */
 .dhead{display:flex;flex-direction:column;gap:14px;padding:18px 24px 0;border-bottom:1px solid var(--line);background:var(--surface)}
 .drow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.drow h1{font-size:21px;margin:0;letter-spacing:-.02em;text-wrap:balance}
+.drow h1{font-family:var(--serif);font-weight:600;font-size:24px;margin:0;letter-spacing:-.01em;text-wrap:balance}
 .drow .grow{flex:1}
 .stepper{display:flex;align-items:center;gap:6px;overflow-x:auto;padding-bottom:2px}
 .stp{display:flex;align-items:center;gap:8px;padding:7px 12px 7px 8px;border-radius:99px;background:var(--surface-2);color:var(--muted);font-weight:600;white-space:nowrap;font-size:13px;border:0}
@@ -202,7 +204,7 @@ button{cursor:pointer}
 .pips i{width:9px;height:9px;border-radius:9px;background:var(--line)}
 .pips i.d{background:var(--accent)}
 .pips i.c{background:var(--surface);box-shadow:0 0 0 2px var(--accent)}
-.grill-q{font-size:19px;line-height:1.35;margin:0 0 16px;letter-spacing:-.01em;text-wrap:balance}
+.grill-q{font-family:var(--serif);font-weight:600;font-size:21px;line-height:1.35;margin:0 0 16px;letter-spacing:-.01em;text-wrap:balance}
 .opts{display:flex;flex-direction:column;gap:9px}
 .opt{display:flex;gap:12px;align-items:flex-start;padding:13px 14px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);text-align:left;width:100%}
 .opt:hover{border-color:var(--accent)}
@@ -225,7 +227,7 @@ button{cursor:pointer}
 
 /* prd doc */
 .doc{max-width:760px}
-.doc h2{font-size:22px;margin:0 0 4px;letter-spacing:-.02em}
+.doc h2{font-family:var(--serif);font-weight:600;font-size:24px;margin:0 0 4px;letter-spacing:-.02em}
 .doc h4{margin:22px 0 6px;font-size:14px;display:flex;gap:8px;align-items:baseline}
 .doc h4 .n{color:var(--accent);font-family:var(--mono);font-size:12px}
 .doc p,.doc li{max-width:65ch}
@@ -305,6 +307,32 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px}
 .feed div{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px}
 .feed time{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
 
+/* brain sub-tabs */
+.subtabs{display:flex;gap:6px;flex-wrap:wrap}
+.subtabs button{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-weight:600;color:var(--muted)}
+.subtabs button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.subtabs .c{font-size:11.5px;opacity:.8}
+.confirm{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:12px;border:1.5px dashed var(--accent-line);background:var(--accent-soft)}
+.confirm p{margin:0;font-weight:600}
+.confirm small{color:var(--muted)}
+.list{display:flex;flex-direction:column;gap:10px}
+.item{padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);display:flex;flex-direction:column;gap:6px}
+.item h4{margin:0;font-size:15px}
+.item .meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted)}
+.lvl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.lvl > div{padding:12px;border-radius:10px;background:var(--surface-2)}
+.lvl ul{margin:6px 0 0;padding-left:18px;font-size:13px}
+.lvl b{font-size:12px;letter-spacing:.05em;text-transform:uppercase}
+.lvl .k1 b{color:var(--ok)}.lvl .k2 b{color:var(--warn)}.lvl .k3 b{color:var(--bad)}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.flow .fs{padding:8px 12px;border-radius:10px;background:var(--surface-2);font-weight:600;font-size:13px}
+.flow .fs small{display:block;font-weight:500;color:var(--accent);font-size:11.5px}
+.ctxbox{border-left:3px solid var(--accent);background:var(--accent-soft);padding:10px 12px;border-radius:0 8px 8px 0;margin:8px 0;font-size:13.5px;max-width:65ch}
+.ctxbox b{color:var(--accent)}
+.scope{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:1px 8px;border-radius:99px;margin-left:8px;vertical-align:2px}
+.scope.team{background:var(--ok-soft);color:var(--ok)}
+.scope.me{background:var(--surface-2);color:var(--muted)}
+@media (max-width:760px){.lvl{grid-template-columns:minmax(0,1fr)}}
 /* forms */
 .form{display:grid;gap:14px}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
@@ -329,7 +357,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13px}
 .modal{background:var(--window);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);width:min(640px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column}
 .modal.wide{width:min(940px,100%)}
 .modal-head{display:flex;align-items:center;gap:10px;padding:18px 22px;border-bottom:1px solid var(--line)}
-.modal-head h2{margin:0;font-size:18px;flex:1}
+.modal-head h2{margin:0;font-family:var(--serif);font-weight:600;font-size:21px;flex:1}
 .modal-body{padding:20px 22px;display:flex;flex-direction:column;gap:16px}
 .modal-foot{display:flex;gap:10px;justify-content:flex-end;padding:14px 22px;border-top:1px solid var(--line);flex-wrap:wrap}
 .ob-steps{display:flex;gap:6px;flex-wrap:wrap}
@@ -504,7 +532,7 @@ const S={ws:'acme',view:'board',prd:null,tab:'now',needsOnly:false,q:'',wsMenu:f
  cfg:{name:'acme-odoo',language:'id',base:'preprod',feature:'feature/{prd_id}-{slug}',launch:'Odoo 17 (acme)',db:'acme_dev',port:'8069',
   mPRD:'claude-sonnet-5-5',mDev:'claude-opus-5-5',mBrain:'claude-haiku-5-5',mCommit:'claude-haiku-5-5',iter:'5',mins:'30',suite:false,budget:'0'},
  skills:{prd:['grill-me'],develop:['tdd','sdd'],test:[],commit:[],brain:['graphify']},
- ob:null,modal:null};
+ ob:null,modal:null,brainTab:'decisions',uconfirm:[{id:'u1',who:'SP',text:'Kamu belum yakin bagaimana Odoo membuat rantai backorder (procurement_group_id).',src:'Hint ke AI di SP-012'},{id:'u2',who:'SP',text:'Kamu lebih suka validasi di constraint model, bukan di view.',src:'Edit manual PRD SP-009',kind:'opinion'}]};
 const ws=()=>WS[S.ws];
 const findPrd=id=>{for(const k in WS){const p=WS[k].prds.find(x=>x.id===id);if(p)return p;}return null;};
 const wsOf=p=>{for(const k in WS){if(WS[k].prds.includes(p))return WS[k];}return ws();};
@@ -573,7 +601,7 @@ function progress(p){const ph=PHASES.find(x=>x.k===phaseOf(p.step));const span=p
 
 /* ---------- sidebar ---------- */
 function sidebar(){const w=ws();const needs=w.prds.filter(p=>p.status==='needs').length;
- const nav=[['board','board','Board',needs],['brain','brain','Brain & Graph'],['skills','wand','Skills'],['runs','play','Runs & DB lock'],['config','sliders','Settings']];
+ const nav=[['board','board','Board',needs],['brain','brain','Brain',S.uconfirm.length],['skills','wand','Skills'],['runs','play','Runs & DB lock'],['config','sliders','Settings']];
  const themeIc=S.theme==='light'?'sun':S.theme==='dark'?'moon':'monitor';
  return '<aside class="side"><div class="ws"><button class="ws-btn" data-a="ws-menu" aria-expanded="'+S.wsMenu+'"><span class="ws-av">'+esc(w.name[0].toUpperCase())+'</span><span class="ws-txt"><span class="ws-name">'+esc(w.name)+'</span><span class="ws-path">'+esc(w.path)+'</span></span>'+ic('down',16)+'</button>'+
  (S.wsMenu?'<div class="ws-menu">'+Object.values(WS).map(x=>{const n=x.prds.filter(p=>p.status==='needs').length;return '<button class="ws-item" data-a="ws-switch" data-w="'+x.id+'"><span class="ws-av">'+esc(x.name[0].toUpperCase())+'</span><span class="ws-txt"><span class="ws-name">'+esc(x.name)+'</span><span class="ws-path">'+esc(x.path)+'</span></span>'+(n?'<span class="pill needs">'+n+'</span>':'')+'</button>';}).join('')+'<button class="ws-item add" data-a="ws-add">'+ic('plus',16)+'Add workspace</button></div>':'')+
@@ -632,6 +660,7 @@ function similarBanner(p){const sim=S.similar[p.id];if(!sim||sim.dismissed)retur
  return '<div class="banner warn">'+ic('alert',16)+'<span class="grow">This looks similar to <b>'+sim.id+'</b> · '+esc(sim.title)+'</span><button class="btn sm" data-a="sim-open" data-id="'+sim.id+'">Open '+sim.id+'</button><button class="btn sm" data-a="sim-dismiss">Not the same</button></div>';}
 
 function workView(p){const w=wsOf(p);let h=similarBanner(p);
+ if(p.module==='account_custom'&&p.id==='SP-016')h+='<div class="banner warn">'+ic('alert',16)+'<span class="grow">Nobody on the team understands <b>kurs pajak KMK vs kurs BI</b> yet. The AI will explain it in grill-me and ask before changing code in this area.</span><button class="btn sm" data-a="goto-under">See team gaps</button></div>';
  const waiting=p.status==='wait';
  h+='<div class="grid2"><div class="panel">';
  if(p._paused&&!waiting)h+='<div class="ai-now paused">'+ic('stop',18)+'<span>Paused by you</span></div>';
@@ -659,7 +688,7 @@ function grillCard(q,idx,total,prefix){let pips='';for(let i=0;i<total;i++)pips+
  q.opts.map((o,i)=>'<button class="opt '+(o.rec?'rec':'')+'" data-a="'+prefix+'-pick" data-i="'+i+'"><span class="opt-mark">'+(o.rec?ic('star',17):'<span class="radio"></span>')+'</span><span class="opt-body"><span class="opt-label">'+esc(o.l)+(o.rec?'<span class="rec-tag">Recommended</span>':'')+'</span>'+(o.why?'<span class="opt-why">Why: '+esc(o.why)+'</span>':'')+'</span></button>').join('')+
  '<div class="opt other"><span class="opt-mark"><span class="radio"></span></span><input id="'+prefix+'-other" placeholder="Other answer…" aria-label="Other answer"><button class="btn sm" data-a="'+prefix+'-other">Use</button></div></div>';}
 function grillView(p){const g=p.grill;let h='';
- const answers='<div class="panel"><span class="eyebrow">Your answers</span><div class="answers" style="margin-top:10px">'+(g.ans.length?g.ans.map((a,i)=>'<div class="ans"><div class="q">'+esc(g.qs[i].q)+'</div><div class="a">'+esc(a)+'</div><button data-a="grill-edit" data-i="'+i+'">Change</button></div>').join(''):'<span class="muted">Answers show up here. You can change any of them.</span>')+'</div></div>';
+ const answers='<div class="panel"><span class="eyebrow">Your answers</span><div class="answers" style="margin-top:10px">'+(g.ans.length?g.ans.map((a,i)=>'<div class="ans"><div class="q">'+esc(g.qs[i].q)+'</div><div class="a">'+esc(a)+'</div><button data-a="grill-edit" data-i="'+i+'">Change</button></div>').join(''):'<span class="muted">Answers show up here. You can change any of them.</span>')+'</div><p class="muted" style="font-size:12.5px;margin:10px 0 0">'+ic('brain',13)+' Each answer is saved to brain/decisions/'+p.id+'.md</p>'+(S.uconfirm.length&&S.uconfirm[S.uconfirm.length-1].src.indexOf(p.id)>0?'<div style="margin-top:12px">'+confirmCards([S.uconfirm[S.uconfirm.length-1]])+'</div>':'')+'</div>';
  if(g.state==='writing')return '<div class="grill-wrap"><div class="panel"><div class="ai-now">'+ic('loader',18,'spin')+'<span>Writing the PRD from your answers</span></div><p class="muted">Model '+S.cfg.mPRD+' · skill grill-me. The PRD goes to brain/prd/'+p.id+'.md.</p></div>'+answers+'</div>';
  if(g.state==='enough'||g.idx>=g.qs.length){
   h='<div class="grill-wrap"><div class="grill"><span class="eyebrow">Grill-me</span><h3 class="grill-q" style="margin-top:8px">The AI has no more questions.</h3><p class="muted">'+g.ans.length+' answers collected. Write the PRD now, or go back and change an answer.</p><div class="grill-foot"><button class="btn" data-a="grill-back">'+ic('left',15)+'Back</button><span class="grow"></span><button class="btn primary" data-a="grill-enough">Write PRD</button></div></div>'+answers+'</div>';return h;}
@@ -708,6 +737,7 @@ function prdDoc(p,short){const ans=p.grill&&p.grill.ans.length?p.grill.ans:null;
  h+='<h4><span class="n">02</span>Goal / non-goal</h4><ul><li><b>Goal:</b> '+(is12?'qty yang sudah ditagih tidak pernah ditagih lagi.':'alur berjalan otomatis sesuai aturan yang disepakati.')+'</li><li><b>Non-goal:</b> '+(is12?'mengubah alur credit note.':'perubahan laporan akuntansi.')+'</li></ul>';
  h+='<h4><span class="n">03</span>User story</h4><p>Sebagai '+(is12?'staf billing':(ans?ans[0].toLowerCase():'staf operasional'))+', saya ingin '+esc(p.title.toLowerCase())+' supaya pekerjaan lebih cepat dan tidak ada salah tagih.</p>';
  h+='<h4><span class="n">04</span>Acceptance criteria</h4>'+ac.map(a=>'<div class="gwt">'+esc(a)+'</div>').join('');
+ if(is12)h+='<div class="ctxbox"><b>Konteks: kenapa begini.</b> Saat pengiriman dibatalkan, Odoo membuat picking baru dengan procurement_group_id yang sama. Itu sebabnya qty lama ikut terhitung. Kotak ini muncul karena brain mencatat kamu belum yakin soal rantai backorder.</div>';
  if(short)return h+'<p class="muted" style="margin-top:14px">Sections 5–10 (desain teknis, migration, modul terdampak, risiko, test plan, Q&amp;A log) are in the full PRD tab.</p></div>';
  h+='<h4><span class="n">05</span>Desain teknis</h4><table><tr><th>Bagian</th><th>Perubahan</th></tr>'+(is12?'<tr><td class="mono">sale.order.line</td><td>_compute_qty_to_invoice mengabaikan stock.move berstatus cancel dan mengikuti rantai backorder</td></tr><tr><td class="mono">tests</td><td>test_invoice_partial.py: 3 test baru</td></tr>':'<tr><td class="mono">'+esc(p.module)+'</td><td>'+(ans&&ans[1]?esc(ans[1]):'Field baru di model yang sudah ada')+'</td></tr><tr><td>View</td><td>Field tampil di form utama</td></tr><tr><td>Security</td><td>Tidak ada perubahan</td></tr>')+'</table>';
  h+='<h4><span class="n">06</span>Migration &amp; data</h4><p>'+(is12?'Tidak ada migration. Versi manifest tetap 17.0.1.4.2.':(ans&&ans[2]&&ans[2].indexOf('Migrasi')===0?'Migration post-migrate mengisi data lama. Versi manifest naik.':'Tidak ada migration. Aturan berlaku ke depan.'))+'</p>';
@@ -745,6 +775,30 @@ function costTab(p){const parts=[['Request (steps 2–5)',.1],['PRD with grill-m
  parts.map(r=>'<tr><td>'+r[0]+'</td><td class="mono">'+(r[0].indexOf('Develop')===0?S.cfg.mDev:r[0].indexOf('PRD')===0?S.cfg.mPRD:S.cfg.mBrain)+'</td><td class="num">'+Math.round(p.cost*r[1]*190000).toLocaleString('en-US')+'</td><td class="num">'+money(p.cost*r[1])+'</td></tr>').join('')+
  '<tr><td><b>Total</b></td><td></td><td class="num"><b>'+Math.round(p.cost*190000).toLocaleString('en-US')+'</b></td><td class="num"><b>'+money(p.cost)+'</b></td></tr></table></div></div>';}
 
+/* ---------- brain data ---------- */
+const DECISIONS=[
+ {prd:'SP-012',q:'Hitung qty dari stock.move atau dari picking?',rec:'stock.move',chose:'stock.move',who:'SP',why:'',date:'27 Okt'},
+ {prd:'SP-012',q:'Perlu migration untuk invoice dobel lama?',rec:'Tidak',chose:'Tidak, ditangani manual oleh finance',who:'SP',why:'Finance sudah membuat credit note untuk 7 kasus',date:'27 Okt'},
+ {prd:'SP-013',q:'Siapa pengguna utama untuk approval PO?',rec:'Staf operasional',chose:'Manajer / approver',who:'SP',why:'',date:'26 Okt'},
+ {prd:'AR-004',q:'Kolom Excel wajib apa saja?',rec:'Kode produk, harga, min qty',chose:'Kode produk, harga, min qty, tanggal berlaku',who:'AR',why:'Harga promo punya tanggal mulai',date:'21 Okt'}];
+const RULES=[
+ {id:'no-double-invoice',t:'Qty yang sudah ditagih tidak boleh ditagih lagi',why:'7 kasus invoice dobel di Oktober (Rp 41,8 juta).',where:'sale_custom · sale.order.line._compute_qty_to_invoice',tests:'test_cancel_then_redeliver_invoices_once, test_backorder_twice',src:'SP-012',flow:'Order to cash',status:'draft'},
+ {id:'po-approval-50m',t:'PO di atas Rp 50 juta perlu approval manajer',why:'Kebijakan pembelian 2026.',where:'purchase_custom · purchase.order.button_confirm',tests:'test_po_above_limit_needs_approval',src:'SP-013',flow:'Procure to pay',status:'draft'},
+ {id:'npwp-16',t:'NPWP disimpan 16 digit tanpa tanda baca',why:'Aturan DJP sejak 2024.',where:'l10n_id_custom · res.partner._check_npwp',tests:'test_npwp_16_digit',src:'SP-009',flow:'Order to cash',status:'active'},
+ {id:'ppn-rounding',t:'PPN dibulatkan per dokumen, bukan per baris',why:'Selisih Rp 1 dengan faktur pajak.',where:'account_custom · account.move._compute_tax_totals',tests:'test_ppn_round_per_document',src:'SP-010',flow:'Order to cash',status:'active'}];
+const FLOWS=[
+ {n:'Order to cash',steps:[['Quotation',''],['Sales Order','diskon-bertingkat (draft)'],['Delivery','no-double-invoice'],['Invoice','ppn-rounding · npwp-16'],['Payment','']],mods:'sale_custom, account_custom, l10n_id_custom'},
+ {n:'Procure to pay',steps:[['RFQ',''],['Purchase Order','po-approval-50m'],['Receipt',''],['Vendor bill',''],['Payment','']],mods:'purchase_custom, stock_report'}];
+const OPINIONS=[
+ {who:'SP',t:'Validasi lebih baik di constraint model daripada di view.',src:'Edit manual PRD SP-009',confirmed:false},
+ {who:'AR',t:'Import Excel harus bisa dry-run dulu sebelum menyimpan.',src:'Jawaban Other di grill AR-004',confirmed:true},
+ {who:'SP',t:'Pesan error untuk user finance pakai Bahasa Indonesia.',src:'Catatan feedback SP-010',confirmed:true}];
+const UNDERSTAND={
+ SP:{name:'Stephen P.',k:['Alur invoice & PPN','Validasi NPWP','Struktur sale_custom'],u:['Rantai backorder (procurement_group_id)'],x:['Kurs pajak KMK vs kurs BI']},
+ AR:{name:'Andi R.',k:['Pricelist & import Excel','Rantai backorder (procurement_group_id)'],u:['Approval PO'],x:['l10n_id_custom']}};
+const TEAM_GAPS=['Kurs pajak KMK vs kurs BI (SP-016 menyentuh ini)'];
+function confirmCards(list){return list.map(c=>'<div class="confirm"><span class="eyebrow">'+(c.kind==='opinion'?'Saving an opinion':'Saving what you understand')+'</span><p>Saya catat: '+esc(c.text)+' Benar?</p><small>From: '+esc(c.src)+'</small><div class="row"><button class="btn sm primary" data-a="uc" data-id="'+c.id+'" data-r="yes">'+ic('check',14)+'Yes, save it</button><button class="btn sm" data-a="uc" data-id="'+c.id+'" data-r="no">No</button><button class="btn sm ghost" data-a="uc" data-id="'+c.id+'" data-r="edit">Edit</button></div>'+(S.ucEdit===c.id?'<div class="row"><input class="note" id="uc-text" value="'+esc(c.text)+'" style="flex:1"><button class="btn sm primary" data-a="uc" data-id="'+c.id+'" data-r="save">Save</button></div>':'')+'</div>').join('');}
+
 /* ---------- brain page ---------- */
 const GN=[{id:'f-inv',l:'Invoicing',k:'feature',x:120,y:70},{id:'f-disc',l:'Diskon pelanggan',k:'feature',x:110,y:300},{id:'f-tax',l:'Pajak Indonesia',k:'feature',x:470,y:60},{id:'f-po',l:'Purchase approval',k:'feature',x:520,y:320},{id:'f-stock',l:'Stok gudang',k:'feature',x:600,y:190},
  {id:'sale_custom',l:'sale_custom',k:'module',x:230,y:190},{id:'account_custom',l:'account_custom',k:'module',x:360,y:130},{id:'l10n_id_custom',l:'l10n_id_custom',k:'module',x:560,y:110},{id:'purchase_custom',l:'purchase_custom',k:'module',x:420,y:300},{id:'stock_report',l:'stock_report',k:'module',x:690,y:270},
@@ -752,16 +806,28 @@ const GN=[{id:'f-inv',l:'Invoicing',k:'feature',x:120,y:70},{id:'f-disc',l:'Disk
  {id:'fl-o2c',l:'Order to cash',k:'flow',x:60,y:190},{id:'fl-p2p',l:'Procure to pay',k:'flow',x:610,y:400}];
 const GE=[['f-inv','sale_custom'],['f-inv','account_custom'],['f-disc','sale_custom'],['f-tax','account_custom'],['f-tax','l10n_id_custom'],['f-po','purchase_custom'],['f-stock','stock_report'],['sale_custom','m-so'],['account_custom','m-am'],['l10n_id_custom','m-rp'],['purchase_custom','m-po'],['stock_report','m-sq'],['fl-o2c','sale_custom'],['fl-o2c','f-inv'],['fl-p2p','purchase_custom'],['fl-p2p','stock_report'],['sale_custom','account_custom']];
 const GC={feature:'var(--accent)',module:'var(--info)',model:'var(--muted)',flow:'var(--ok)'};
-function brainPage(){const sel=GN.find(n=>n.id===S.brainSel)||GN[5];const w=ws();
+function graphView(){const sel=GN.find(n=>n.id===S.brainSel)||GN[5];const w=ws();
  const nb=new Set(GE.filter(e=>e.includes(sel.id)).flat());
  let svg='<svg viewBox="0 0 780 430" role="img" aria-label="Code and feature graph">'+GE.map(e=>{const a=GN.find(n=>n.id===e[0]),b=GN.find(n=>n.id===e[1]);return '<line class="edge '+(e.includes(sel.id)?'hl':'')+'" x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'"/>';}).join('')+
   GN.map(n=>'<g class="node '+(n.id===sel.id?'sel':'')+'" data-a="gnode" data-n="'+n.id+'" tabindex="0" opacity="'+(nb.has(n.id)||n.id===sel.id?1:.55)+'"><circle cx="'+n.x+'" cy="'+n.y+'" r="'+(n.k==='feature'?13:n.k==='flow'?12:n.k==='module'?11:8)+'" fill="'+GC[n.k]+'"/><text x="'+n.x+'" y="'+(n.y+(n.k==='model'?20:26))+'" text-anchor="middle">'+esc(n.l)+'</text></g>').join('')+'</svg>';
  const note='---\ntype: '+sel.k+'\nsource: '+(sel.k==='feature'||sel.k==='flow'?'claude summary':'graphify + odoo layer')+'\n---\n# '+sel.l+'\n\n'+GE.filter(e=>e.includes(sel.id)).map(e=>{const o=GN.find(n=>n.id===(e[0]===sel.id?e[1]:e[0]));return '- [['+o.k+'s/'+o.l+']]';}).join('\n')+(sel.k==='module'?'\n\n## Models\n- _inherit: '+(sel.id==='sale_custom'?'sale.order, sale.order.line':'—')+'\n\n## Recent changes\n- SP-012 Invoice dobel (in progress)\n- AR-004 Import pricelist (merged)':'');
- return '<div class="head"><div><h1>Brain &amp; Graph</h1><div class="sub">Vault .floww/brain · branch floww/brain · '+(w.graph<100?'graph '+w.graph+'%':'214 nodes, 388 links')+'</div></div><span class="grow"></span><button class="btn" data-a="brain-sync">'+ic('sync',15)+'Sync now</button><button class="btn primary" data-a="obsidian">'+ic('ext',15)+'Open vault in Obsidian</button></div>'+
- '<div class="content"><div class="brain-grid"><div class="panel graph"><div class="row" style="margin-bottom:8px"><h3 class="grow">Graph</h3><div class="legend"><span><i style="background:var(--accent)"></i>Feature</span><span><i style="background:var(--info)"></i>Module</span><span><i style="background:var(--muted)"></i>Model</span><span><i style="background:var(--ok)"></i>Business flow</span></div></div><div class="tbl-wrap">'+svg+'</div></div>'+
+ return '<div class="brain-grid"><div class="panel graph"><div class="row" style="margin-bottom:8px"><h3 class="grow">Graph</h3><div class="legend"><span><i style="background:var(--accent)"></i>Feature</span><span><i style="background:var(--info)"></i>Module</span><span><i style="background:var(--muted)"></i>Model</span><span><i style="background:var(--ok)"></i>Business flow</span></div></div><div class="tbl-wrap">'+svg+'</div></div>'+
  '<div style="display:flex;flex-direction:column;gap:16px"><div class="panel"><span class="eyebrow">Selected note</span><pre class="notepre" style="margin-top:8px">'+esc(note)+'</pre></div>'+
  '<div class="panel"><h3>Folders</h3><div class="folders" style="margin-top:8px">'+[['requirements',17],['prd',14],['features',9],['modules',23],['flows',4],['changes',11],['skills/scans',5],['graph',214]].map(f=>'<div>'+ic('folder',14)+f[0]+'<span class="c">'+f[1]+'</span></div>').join('')+'</div></div>'+
- '<div class="panel"><h3>Team activity</h3><div class="feed" style="margin-top:8px"><div><time>2m</time><span>FloWW logged SP-012 test progress</span></div><div><time>1h</time><span>Andi R. merged AR-004, brain updated</span></div><div><time>3h</time><span>Graph refreshed after commit 9e01b7a</span></div></div></div></div></div></div>';}
+ '<div class="panel"><h3>Team activity</h3><div class="feed" style="margin-top:8px"><div><time>2m</time><span>FloWW logged SP-012 test progress</span></div><div><time>1h</time><span>Andi R. merged AR-004, brain updated</span></div><div><time>2h</time><span>Andi R. changed team rule: max TDD tries 4 → 5 (“SP-014 butuh lebih”)</span></div><div><time>3h</time><span>Graph refreshed after commit 9e01b7a</span></div></div></div></div></div>';}
+function brainPage(){const w=ws();const t=S.brainTab;
+ const tabs=[['decisions','Decisions',DECISIONS.length],['rules','Business rules',RULES.length],['flows','Flows',FLOWS.length],['opinions','Opinions',OPINIONS.length],['understanding','Understanding',S.uconfirm.length?S.uconfirm.length+' to confirm':''],['graph','Graph','']];
+ let body='';
+ if(t==='decisions')body='<div class="panel"><h3>Grill-me decisions</h3><p class="lead">Every question, the AI recommendation, and what a person chose. Saved to decisions/&lt;prd&gt;.md so nobody gets asked the same thing twice.</p><div class="tbl-wrap"><table class="tbl"><tr><th>PRD</th><th>Question</th><th>AI recommended</th><th>Chosen</th><th>Who</th><th>Why</th></tr>'+DECISIONS.slice().reverse().map(d=>'<tr><td class="mono">'+d.prd+'</td><td>'+esc(d.q)+'</td><td class="muted">'+esc(d.rec)+'</td><td><b>'+esc(d.chose)+'</b>'+(d.chose!==d.rec?' <span class="chip">differs</span>':'')+'</td><td>'+d.who+'</td><td class="muted">'+esc(d.why||'—')+'</td></tr>').join('')+'</table></div></div>';
+ if(t==='rules')body='<div class="list">'+RULES.map(r=>'<div class="item"><div class="meta"><span class="mono">rules/'+r.id+'.md</span>'+(r.status==='draft'?'<span class="pill needs">Draft · from PRD</span>':'<span class="pill done">Active</span>')+'<span class="chip">'+esc(r.flow)+'</span></div><h4>'+esc(r.t)+'</h4><div class="kv"><span>Why</span><span>'+esc(r.why)+'</span><span>Enforced in</span><span class="mono">'+esc(r.where)+'</span><span>Guarded by</span><span class="mono">'+esc(r.tests)+'</span><span>Source</span><span class="mono">'+r.src+'</span></div>'+(r.status==='draft'?'<div class="row"><button class="btn sm primary" data-a="rule-ok" data-id="'+r.id+'">'+ic('check',14)+'Confirm rule</button><button class="btn sm">Edit</button></div>':'')+'</div>').join('')+'</div>';
+ if(t==='flows')body='<div class="list">'+FLOWS.map(f=>'<div class="item"><h4>'+esc(f.n)+'</h4><div class="flow">'+f.steps.map((x,i)=>(i?ic('left',14,'muted" style="transform:rotate(180deg)'):'')+'<span class="fs">'+esc(x[0])+(x[1]?'<small>'+esc(x[1])+'</small>':'')+'</span>').join('')+'</div><div class="meta">Modules: <span class="mono">'+esc(f.mods)+'</span></div></div>').join('')+'</div>';
+ if(t==='opinions')body='<div class="panel"><h3>Opinions &amp; preferences</h3><p class="lead">Things people prefer that are not business rules. The AI uses them when it recommends options and writes code.</p><div class="list">'+OPINIONS.map(o=>'<div class="item"><div class="meta"><span class="author" style="width:22px;height:22px;border-radius:6px;background:var(--surface-2);display:grid;place-items:center;font-weight:800;font-size:10px">'+o.who+'</span>'+esc(o.src)+(o.confirmed?'<span class="pill done">'+ic('check',12)+'Confirmed</span>':'<span class="pill needs">Waiting for confirmation</span>')+'</div><b>'+esc(o.t)+'</b></div>').join('')+'</div></div>';
+ if(t==='understanding'){body=(S.uconfirm.length?'<div class="panel"><h3>Please confirm</h3><p class="lead">The AI never saves what you understand without asking.</p><div class="list">'+confirmCards(S.uconfirm)+'</div></div>':'')+
+  Object.keys(UNDERSTAND).map(k=>{const u=UNDERSTAND[k];return '<div class="panel"><div class="row"><h3 class="grow">'+u.name+'</h3><span class="mono muted">understanding/people/'+k+'.md</span></div><div class="lvl" style="margin-top:10px"><div class="k1"><b>Understands</b><ul>'+u.k.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div><div class="k2"><b>Unsure</b><ul>'+u.u.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div><div class="k3"><b>Not yet</b><ul>'+u.x.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div></div></div>';}).join('')+
+  '<div class="panel"><h3>Team gaps</h3><p class="lead">Areas nobody understands yet. The AI asks for stricter confirmation before changing code here, and grill-me explains the topic first.</p><div class="list">'+TEAM_GAPS.map(g=>'<div class="banner warn">'+ic('alert',16)+'<span class="grow">'+esc(g)+'</span></div>').join('')+'</div></div>';}
+ if(t==='graph')body=graphView();
+ return '<div class="head"><div><h1>Brain</h1><div class="sub">Shared with the team on branch floww/brain · '+(w.graph<100?'graph '+w.graph+'%':'214 graph nodes')+'</div></div><span class="grow"></span><button class="btn" data-a="brain-sync">'+ic('sync',15)+'Sync now</button><button class="btn primary" data-a="obsidian">'+ic('ext',15)+'Open vault in Obsidian</button></div>'+
+ '<div class="content"><div class="subtabs">'+tabs.map(x=>'<button class="'+(t===x[0]?'on':'')+'" data-a="btab" data-t="'+x[0]+'">'+x[1]+(x[2]!==''?' <span class="c">'+x[2]+'</span>':'')+'</button>').join('')+'</div>'+body+'</div>';}
 
 /* ---------- skills page ---------- */
 const SKILLS=[['grill-me','~/.claude/skills','clean','Interviews you one question at a time with a recommendation'],['tdd','~/.claude/skills','clean','Red → green → refactor loop'],['sdd','~/.claude/skills','clean','Spec-driven development from the PRD'],['graphify','~/.claude/skills','warn','Builds a knowledge graph from code'],['odoo-cherry-pick-guard','~/.agents/skills','clean','Odoo invariants during cherry-pick'],['caveman-commit','plugin','clean','Short commit messages']];
@@ -774,7 +840,7 @@ function skillsPage(){const si=S.skillInstall;let ins='';
  const rows=SKILLS.concat(S.extraSkills||[]);
  return '<div class="head"><div><h1>Skills</h1><div class="sub">Claude Code skills on this machine. Pick which ones run in each step.</div></div></div><div class="content">'+
  '<div class="panel"><h3>Install a skill</h3><p class="lead">The AI installs it, then scans it with skillspector. High-risk findings are blocked unless you override.</p><form class="row" data-form="skill"><div class="field" style="flex:1;min-width:220px"><label for="sk-src" class="muted" style="font-weight:600">Git URL, folder or skill name</label><input id="sk-src" placeholder="github.com/someone/odoo-migration-helper"></div><button class="btn primary" type="submit" style="align-self:flex-end">'+ic('plus',15)+'Install</button></form><p class="muted" style="font-size:12.5px;margin:8px 0 0">Demo: a source containing "deploy" shows a blocked scan.</p>'+(ins?'<div style="margin-top:14px">'+ins+'</div>':'')+'</div>'+
- '<div class="panel"><h3>Skills per step</h3><p class="lead">FloWW tells Claude to use these skills when the step runs.</p><div class="tbl-wrap"><table class="tbl">'+STEPS_SK.map(st=>'<tr><td style="width:220px"><b>'+st[1]+'</b></td><td><div class="chips">'+S.skills[st[0]].map(k=>'<span class="chip skill">'+esc(k)+'<button data-a="sk-rm" data-s="'+st[0]+'" data-k="'+esc(k)+'" aria-label="Remove '+esc(k)+'">'+ic('x',12)+'</button></span>').join('')+'<select data-skadd="'+st[0]+'" aria-label="Add skill to '+st[1]+'"><option value="">+ add</option>'+rows.filter(r=>!S.skills[st[0]].includes(r[0])).map(r=>'<option>'+esc(r[0])+'</option>').join('')+'</select></div></td></tr>').join('')+'</table></div></div>'+
+ '<div class="panel"><h3>Skills per step</h3><p class="lead">FloWW tells Claude to use these skills when the step runs. Saved to brain/_floww/team.toml, so the whole team uses the same skills.</p><div class="tbl-wrap"><table class="tbl">'+STEPS_SK.map(st=>'<tr><td style="width:220px"><b>'+st[1]+'</b></td><td><div class="chips">'+S.skills[st[0]].map(k=>'<span class="chip skill">'+esc(k)+'<button data-a="sk-rm" data-s="'+st[0]+'" data-k="'+esc(k)+'" aria-label="Remove '+esc(k)+'">'+ic('x',12)+'</button></span>').join('')+'<select data-skadd="'+st[0]+'" aria-label="Add skill to '+st[1]+'"><option value="">+ add</option>'+rows.filter(r=>!S.skills[st[0]].includes(r[0])).map(r=>'<option>'+esc(r[0])+'</option>').join('')+'</select></div></td></tr>').join('')+'</table></div></div>'+
  '<div class="panel"><h3>Installed</h3><div class="tbl-wrap"><table class="tbl"><tr><th>Skill</th><th>What it does</th><th>Location</th><th>Scan</th></tr>'+rows.map(r=>'<tr><td class="mono">'+esc(r[0])+'</td><td>'+esc(r[3])+'</td><td class="mono muted">'+esc(r[1])+'</td><td>'+(r[2]==='clean'?'<span class="pill done">'+ic('shield',12)+'Clean</span>':r[2]==='forced'?'<span class="pill fail">'+ic('alert',12)+'Override</span>':'<span class="pill needs">'+ic('alert',12)+'1 warning</span>')+'</td></tr>').join('')+'</table></div></div></div>';}
 
 /* ---------- runs page ---------- */
@@ -789,19 +855,25 @@ function runsPage(){const w=ws(),L=w.lock;const holder=L.holder?findPrd(L.holder
  '<span class="eyebrow" style="display:block;margin-top:14px">Server log</span><pre class="notepre" style="margin-top:8px;max-height:200px;overflow:auto">'+esc(holder?'INFO acme_dev odoo.modules.loading: loading 214 modules...\nINFO acme_dev odoo.modules.loading: 214 modules loaded in 3.41s\nINFO acme_dev odoo.service.server: Starting post tests\nINFO acme_dev odoo.addons.'+holder.module+'.tests: running '+holder.id.toLowerCase()+' tests\n':'No process running.')+'</pre></div></div></div>';}
 
 /* ---------- settings page ---------- */
-function toml(){const c=S.cfg;const q=v=>'"'+v+'"';
+function toml(){return tomlTeam();}
+function tomlTeam(){const c=S.cfg;const q=v=>'"'+v+'"';
+ return '<span class="k">[workspace]</span>\npreset = "odoo"\nlanguage = '+q(c.language)+'\n\n<span class="k">[git]</span>\nbase_branch = '+q(c.base)+'\nfeature_branch = '+q(c.feature)+'\ncommit_format = "odoo"\n\n<span class="k">[steps.prd]</span>\nskills = ['+S.skills.prd.map(q).join(', ')+']\n\n<span class="k">[steps.develop]</span>\nskills = ['+S.skills.develop.map(q).join(', ')+']\nmax_iterations = '+(c.iter||0)+'\nmax_minutes = '+(c.mins||0)+'\n\n<span class="k">[steps.test]</span>\nfull_suite = '+c.suite;}
+function tomlLocal(){const c=S.cfg;const q=v=>'"'+v+'"';
+ return '<span class="k">[workspace]</span>\nname = '+q(c.name)+'\ninitials = "SP"\n\n<span class="k">[git]</span>\ngithub_token = "keyring:floww-github"\n\n<span class="k">[run]</span>\nlaunch_config = '+q(c.launch)+'\ndb = '+q(c.db)+'\nhttp_port = '+(c.port||0)+'\n\n<span class="k">[models]</span>\nprd = '+q(c.mPRD)+'\ndevelop = '+q(c.mDev)+'\nbrain = '+q(c.mBrain)+'\ncommit = '+q(c.mCommit)+'\n\n<span class="k">[budget]</span>\nper_prd_usd = '+(c.budget||0);}
+function tomlOld(){const c=S.cfg;const q=v=>'"'+v+'"';
  return '<span class="k">[workspace]</span>\nname = '+q(c.name)+'\npreset = "odoo"\nlanguage = '+q(c.language)+'\n\n<span class="k">[git]</span>\nbase_branch = '+q(c.base)+'\nfeature_branch = '+q(c.feature)+'\ngithub_token = "keyring:floww-github"\n\n<span class="k">[run]</span>\nlaunch_config = '+q(c.launch)+'\ndb = '+q(c.db)+'\nhttp_port = '+(c.port||0)+'\n\n<span class="k">[models]</span>\nprd = '+q(c.mPRD)+'\ndevelop = '+q(c.mDev)+'\nbrain = '+q(c.mBrain)+'\ncommit = '+q(c.mCommit)+'\n\n<span class="k">[steps.develop]</span>\nskills = ['+S.skills.develop.map(q).join(', ')+']\nmax_iterations = '+(c.iter||0)+'\nmax_minutes = '+(c.mins||0)+'\n\n<span class="k">[steps.test]</span>\nfull_suite = '+c.suite+'\n\n<span class="k">[budget]</span>\nper_prd_usd = '+(c.budget||0);}
 const MODELS=['claude-opus-5-5','claude-sonnet-5-5','claude-haiku-5-5','claude-fable-5-1'];
 function sel(id,val,opts){return '<select id="'+id+'" data-cfg="'+id.replace('cfg-','')+'">'+opts.map(o=>'<option '+(o===val?'selected':'')+'>'+esc(o)+'</option>').join('')+'</select>';}
 function inp(id,val,type){return '<input id="'+id+'" data-cfg="'+id.replace('cfg-','')+'" value="'+esc(val)+'" '+(type?'type="'+type+'"':'')+'>';}
 function configPage(){const c=S.cfg;
- return '<div class="head"><div><h1>Settings</h1><div class="sub">Saved to .floww/workspace.toml on this machine only (not committed).</div></div></div><div class="content"><div class="grid2"><div class="cfg-sec">'+
- '<div class="panel"><h3>Workspace</h3><div class="form-2" style="margin-top:12px"><div class="field"><label for="cfg-name">Name</label>'+inp('cfg-name',c.name)+'</div><div class="field"><label for="cfg-language">AI writes PRD and brain in</label>'+sel('cfg-language',c.language,['id','en'])+'</div></div></div>'+
- '<div class="panel"><h3>Git</h3><div class="form-2" style="margin-top:12px"><div class="field"><label for="cfg-base">Base branch</label>'+inp('cfg-base',c.base)+'<span class="hint">New PRD branches start here.</span></div><div class="field"><label for="cfg-feature">Branch name pattern</label>'+inp('cfg-feature',c.feature)+'</div><div class="field"><label>GitHub token</label><input value="•••••••••• (OS keyring)" disabled></div></div></div>'+
- '<div class="panel"><h3>Run</h3><div class="form-3" style="margin-top:12px"><div class="field"><label for="cfg-launch">launch.json config</label>'+sel('cfg-launch',c.launch,['Odoo 17 (acme)','Odoo 17 shell','Odoo 17 tests'])+'</div><div class="field"><label for="cfg-db">Local database</label>'+sel('cfg-db',c.db,['acme_dev','acme_dev_backup','acme_test'])+'</div><div class="field"><label for="cfg-port">HTTP port</label>'+inp('cfg-port',c.port,'number')+'</div></div></div>'+
- '<div class="panel"><h3>AI models</h3><p class="lead">Default: Claude subscription · '+S.cfg.mPRD+'. Override per step.</p><div class="form-2"><div class="field"><label for="cfg-mPRD">PRD &amp; grill-me</label>'+sel('cfg-mPRD',c.mPRD,MODELS)+'</div><div class="field"><label for="cfg-mDev">Develop</label>'+sel('cfg-mDev',c.mDev,MODELS)+'</div><div class="field"><label for="cfg-mBrain">Brain summaries</label>'+sel('cfg-mBrain',c.mBrain,MODELS)+'</div><div class="field"><label for="cfg-mCommit">Commit message</label>'+sel('cfg-mCommit',c.mCommit,MODELS)+'</div></div></div>'+
- '<div class="panel"><h3>Limits</h3><div class="form-3" style="margin-top:12px"><div class="field"><label for="cfg-iter">Max TDD tries</label>'+inp('cfg-iter',c.iter,'number')+'</div><div class="field"><label for="cfg-mins">Max minutes per step</label>'+inp('cfg-mins',c.mins,'number')+'</div><div class="field"><label for="cfg-budget">Budget per PRD (USD, 0 = none)</label>'+inp('cfg-budget',c.budget,'number')+'</div></div><label class="toggle" style="margin-top:12px"><input type="checkbox" id="cfg-suite" data-cfg="suite" '+(c.suite?'checked':'')+'>Run the full test suite after develop</label></div>'+
- '</div><div class="panel" style="position:sticky;top:12px"><span class="eyebrow">.floww/workspace.toml</span><pre class="toml" id="toml" style="margin-top:8px">'+toml()+'</pre></div></div></div>';}
+ return '<div class="head"><div><h1>Settings</h1><div class="sub">Team rules are shared through the brain. Machine settings stay on this computer.</div></div></div><div class="content"><div class="grid2"><div class="cfg-sec">'+
+ '<div class="banner" style="font-weight:500">'+ic('brain',16)+'<span class="grow"><b>Team</b> settings live in brain/_floww/team.toml and apply to everyone. <b>Only you</b> settings stay in .floww/workspace.toml on this machine. Every team change is a commit with your name.</span></div>'+
+ '<div class="panel"><h3>Workspace</h3><div class="form-2" style="margin-top:12px"><div class="field"><label for="cfg-name">Name<span class="scope me">Only you</span></label>'+inp('cfg-name',c.name)+'</div><div class="field"><label for="cfg-language">AI writes PRD and brain in<span class="scope team">'+ic('brain',10)+'Team · shared</span></label>'+sel('cfg-language',c.language,['id','en'])+'</div></div></div>'+
+ '<div class="panel"><h3>Git<span class="scope team">'+ic('brain',10)+'Team · shared</span></h3><div class="form-2" style="margin-top:12px"><div class="field"><label for="cfg-base">Base branch</label>'+inp('cfg-base',c.base)+'<span class="hint">New PRD branches start here.</span></div><div class="field"><label for="cfg-feature">Branch name pattern</label>'+inp('cfg-feature',c.feature)+'</div><div class="field"><label>GitHub token<span class="scope me">Only you</span></label><input value="•••••••••• (OS keyring)" disabled></div></div></div>'+
+ '<div class="panel"><h3>Run<span class="scope me">Only you</span></h3><div class="form-3" style="margin-top:12px"><div class="field"><label for="cfg-launch">launch.json config</label>'+sel('cfg-launch',c.launch,['Odoo 17 (acme)','Odoo 17 shell','Odoo 17 tests'])+'</div><div class="field"><label for="cfg-db">Local database</label>'+sel('cfg-db',c.db,['acme_dev','acme_dev_backup','acme_test'])+'</div><div class="field"><label for="cfg-port">HTTP port</label>'+inp('cfg-port',c.port,'number')+'</div></div></div>'+
+ '<div class="panel"><h3>AI models<span class="scope me">Only you</span></h3><p class="lead">Default: Claude subscription · '+S.cfg.mPRD+'. Override per step.</p><div class="form-2"><div class="field"><label for="cfg-mPRD">PRD &amp; grill-me</label>'+sel('cfg-mPRD',c.mPRD,MODELS)+'</div><div class="field"><label for="cfg-mDev">Develop</label>'+sel('cfg-mDev',c.mDev,MODELS)+'</div><div class="field"><label for="cfg-mBrain">Brain summaries</label>'+sel('cfg-mBrain',c.mBrain,MODELS)+'</div><div class="field"><label for="cfg-mCommit">Commit message</label>'+sel('cfg-mCommit',c.mCommit,MODELS)+'</div></div></div>'+
+ '<div class="panel"><h3>Limits<span class="scope team">'+ic('brain',10)+'Team · shared</span></h3><div class="form-3" style="margin-top:12px"><div class="field"><label for="cfg-iter">Max TDD tries</label>'+inp('cfg-iter',c.iter,'number')+'</div><div class="field"><label for="cfg-mins">Max minutes per step</label>'+inp('cfg-mins',c.mins,'number')+'</div><div class="field"><label for="cfg-budget">Budget per PRD (USD, 0 = none)<span class="scope me">Only you</span></label>'+inp('cfg-budget',c.budget,'number')+'</div></div><label class="toggle" style="margin-top:12px"><input type="checkbox" id="cfg-suite" data-cfg="suite" '+(c.suite?'checked':'')+'>Run the full test suite after develop</label></div>'+
+ '</div><div style="display:flex;flex-direction:column;gap:16px"><div class="panel"><span class="eyebrow">brain/_floww/team.toml · shared</span><pre class="toml" id="toml" style="margin-top:8px">'+tomlTeam()+'</pre></div><div class="panel"><span class="eyebrow">.floww/workspace.toml · only you</span><pre class="toml" id="toml-local" style="margin-top:8px">'+tomlLocal()+'</pre></div></div></div></div>';}
 
 /* ---------- main render ---------- */
 function render(){const app=document.getElementById('app');const scroll=app.querySelector('.main');const st=scroll?scroll.scrollTop:0;
@@ -876,7 +948,7 @@ function act(a,el,ev){const p=S.prd?findPrd(S.prd):null;const d=el.dataset;
  case 'close':case 'scrim':if(a==='scrim'&&(!ev||el!==ev.target))return;if(S.ob&&S.ob.agent)clearTimeout(S.ob.agent.timer);S.modal=null;renderModal();break;
  case 'rtype':S.rtype=d.v;document.querySelectorAll('#r-type button').forEach(b=>b.classList.toggle('on',b===el));break;
  case 'grill-pick':answer(p,p.grill.qs[p.grill.idx].opts[+d.i].l);break;
- case 'grill-other':{const v=document.getElementById('grill-other').value.trim();if(v)answer(p,v);break;}
+ case 'grill-other':{const v=document.getElementById('grill-other').value.trim();if(v)answer(p,v,true);break;}
  case 'grill-back':{const g=p.grill;g.state='asking';g.idx=Math.max(0,g.idx-1);render();break;}
  case 'grill-edit':{const g=p.grill;g.idx=+d.i;g.state='asking';render();break;}
  case 'grill-enough':{const g=p.grill;g.state='writing';p.status='ai';p.sub='Writing PRD';tl(p,'run','Writing PRD from '+g.ans.length+' answers');
@@ -914,6 +986,15 @@ function act(a,el,ev){const p=S.prd?findPrd(S.prd):null;const d=el.dataset;
  case 'sim-open':S.tab='now';go('prd',d.id);break;
  case 'sim-dismiss':S.similar[p.id].dismissed=true;render();break;
  case 'gnode':S.brainSel=d.n;render();break;
+ case 'btab':S.brainTab=d.t;render();break;
+ case 'goto-under':S.brainTab='understanding';go('brain');break;
+ case 'rule-ok':{const r=RULES.find(x=>x.id===d.id);r.status='active';notify('Rule confirmed','rules/'+r.id+'.md · committed to floww/brain','ok','brain');render();break;}
+ case 'uc':{const c=S.uconfirm.find(x=>x.id===d.id);if(!c)break;
+  if(d.r==='edit'){S.ucEdit=c.id;render();break;}
+  if(d.r==='save'){c.text=document.getElementById('uc-text').value;S.ucEdit=null;}
+  if(d.r==='yes'||d.r==='save'){if(c.kind==='opinion')OPINIONS.unshift({who:c.who,t:c.text.replace(/^kamu /i,''),src:c.src,confirmed:true});else UNDERSTAND[c.who].u.push(c.text.replace(/^Kamu belum yakin /i,'').replace(/\.$/,''));
+   notify('Saved to brain',c.kind==='opinion'?'opinions/ · '+c.who:'understanding/people/'+c.who+'.md','ok','brain');}
+  S.uconfirm=S.uconfirm.filter(x=>x!==c);render();break;}
  case 'brain-sync':notify('Brain synced','Pulled 2 notes from Andi R., pushed 3','ok','brain');break;
  case 'sk-rm':S.skills[d.s]=S.skills[d.s].filter(k=>k!==d.k);render();break;
  case 'sk-cancel':S.skillInstall=null;render();break;
@@ -932,7 +1013,9 @@ function act(a,el,ev){const p=S.prd?findPrd(S.prd):null;const d=el.dataset;
   WS[id]={id:id,name:name,path:o.path,db:(document.getElementById('rv-db')||{}).value||'gama_dev',port:8070,counter:0,graph:4,lock:{holder:null,what:'',since:'',queue:[]},prds:[]};
   S.ws=id;S.cfg.name=name;S.cfg.db=WS[id].db;S.cfg.port='8070';S.cfg.launch='Odoo 17 (acme)';S.modal=null;renderModal();go('board');notify('Workspace ready',name+' · graph is building in the background','ok','brain');break;}
  }}
-function answer(p,v){const g=p.grill;g.ans[g.idx]=v;g.ans=g.ans.slice(0,g.idx+1);g.idx++;tl(p,'info','Answered Q'+g.idx+': '+v);
+function answer(p,v,other){const g=p.grill;const qq=g.qs[g.idx];const rec=(qq.opts.find(o=>o.rec)||{}).l||'';
+ DECISIONS.push({prd:p.id,q:qq.q,rec:rec,chose:v,who:'SP',why:'',date:'today'});
+ if(other){const c={id:'u'+Date.now(),who:'SP',text:'kamu punya pendapat sendiri soal "'+qq.topic+'": '+v+'.',src:'Jawaban Other di grill '+p.id,kind:'opinion'};S.uconfirm.push(c);notify('Saved to brain: decision','AI wants to confirm one thing about you','info','brain');}g.ans[g.idx]=v;g.ans=g.ans.slice(0,g.idx+1);g.idx++;tl(p,'info','Answered Q'+g.idx+': '+v);
  if(g.idx>=g.qs.length){g.state='enough';p.sub='Grill-me · all answered';}else p.sub='Grill-me · '+g.idx+' of '+g.qs.length+' answered';p.action=g.idx>=g.qs.length?'Write the PRD':'Answer '+(g.qs.length-g.idx)+' questions';render();}
 function startOdoo(p){requestLock(p,'Human test (Odoo running)',q=>{q.tests.odoo='starting';q.status='ai';q.sub='Starting Odoo';
  queueSim(q.id,[x=>{x.step=12;x.sub='Starting Odoo';tl(x,'done','Started Odoo on localhost:'+wsOf(x).port,'odoo-bin -c odoo17.conf -d '+wsOf(x).db+' --http-port '+wsOf(x).port);},
@@ -949,11 +1032,12 @@ document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.tar
 document.addEventListener('input',e=>{const t=e.target;
  if(t.id==='search'){S.q=t.value;const pos=t.selectionStart;render();const n=document.getElementById('search');n.focus();n.setSelectionRange(pos,pos);}
  if(t.classList.contains('note')){const p=findPrd(S.prd);if(p&&p.tests){p.tests.cases[+t.dataset.i].note=t.value;const fb=document.querySelector('[data-a="feedback"]');if(fb)fb.disabled=!(p.tests.odoo==='on'&&p.tests.cases.some(c=>c.res==='fail'||c.note.trim()));}}
- if(t.dataset.cfg&&t.type!=='checkbox'){S.cfg[t.dataset.cfg]=t.value;const tm=document.getElementById('toml');if(tm)tm.innerHTML=toml();}});
+ if(t.dataset.cfg&&t.type!=='checkbox'){S.cfg[t.dataset.cfg]=t.value;refreshToml();}});
+function refreshToml(){const a=document.getElementById('toml'),b=document.getElementById('toml-local');if(a)a.innerHTML=tomlTeam();if(b)b.innerHTML=tomlLocal();}
 document.addEventListener('change',e=>{const t=e.target;
  if(t.id==='needs'){S.needsOnly=t.checked;render();}
  if(t.id==='tech'){S.tech=t.checked;render();}
- if(t.dataset.cfg){S.cfg[t.dataset.cfg]=t.type==='checkbox'?t.checked:t.value;const tm=document.getElementById('toml');if(tm)tm.innerHTML=toml();}
+ if(t.dataset.cfg){S.cfg[t.dataset.cfg]=t.type==='checkbox'?t.checked:t.value;refreshToml();}
  if(t.dataset.skadd&&t.value){S.skills[t.dataset.skadd].push(t.value);render();}});
 document.addEventListener('submit',e=>{e.preventDefault();const f=e.target.dataset.form;
  if(f==='req'){const w=ws();w.counter++;const id='SP-'+String(w.counter).padStart(3,'0');const title=document.getElementById('r-title').value.trim()||'Untitled request';
