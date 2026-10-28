@@ -86,9 +86,10 @@ The desktop app runs the same local server on a random port; nothing else change
 
 ### Releasing
 
-Add `docs/release-notes/vX.Y.Z.md`, bump the version in `src-tauri/tauri.conf.json`, then push a
-tag `vX.Y.Z` (or run the Release workflow from the Actions tab with that tag; it creates the tag).
-It builds the .deb, AppImage and floww-web tarball and publishes them.
+Bump the version in `src-tauri/tauri.conf.json`, add `docs/release-notes/vX.Y.Z.md`, and merge to
+`main`. The Release workflow sees a version with no tag yet, builds the .deb, AppImage and
+floww-web tarball, creates tag `vX.Y.Z` and publishes the release. Pushing the tag yourself works
+too.
 
 ## How a request flows
 

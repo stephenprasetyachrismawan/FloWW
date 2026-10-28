@@ -1,10 +1,14 @@
 name: Release
 
-# Push a tag like v0.1.0, or run it by hand with a tag name, to build the Linux
-# packages and publish a GitHub release. Run by hand, it creates the tag on the
-# commit it builds.
+# Builds the Linux packages and publishes a GitHub release when:
+#  - main gets a version in src-tauri/tauri.conf.json that has no tag yet
+#    (bump the version and merge to main to release), or
+#  - a tag like v0.1.0 is pushed, or
+#  - it is run by hand with a tag name.
+# The workflow creates the tag itself when it does not exist.
 on:
   push:
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
     inputs:
@@ -15,21 +19,49 @@ on:
 permissions:
   contents: write
 
-env:
-  TAG: ${{ inputs.tag || github.ref_name }}
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
-  linux:
-    name: Linux packages
-    runs-on: ubuntu-22.04 # older glibc so the packages run on more distros
+  plan:
+    name: Decide
+    runs-on: ubuntu-22.04
+    outputs:
+      tag: ${{ steps.plan.outputs.tag }}
+      release: ${{ steps.plan.outputs.release }}
     steps:
       - uses: actions/checkout@v4
-      - name: Check tag
+      - id: plan
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Tag '$TAG' must look like v0.1.0."; exit 1; }
-          want="${TAG#v}"
-          have=$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
-          [ "$want" = "$have" ] || { echo "Tag $TAG but src-tauri/tauri.conf.json says $have. Make them match."; exit 1; }
+          version=$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
+          case "$GITHUB_EVENT_NAME:$GITHUB_REF_TYPE" in
+            workflow_dispatch:*) tag="$INPUT_TAG" ;;
+            push:tag) tag="$GITHUB_REF_NAME" ;;
+            *) tag="v$version" ;;
+          esac
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Tag '$tag' must look like v0.1.0."; exit 1; }
+          [ "${tag#v}" = "$version" ] || { echo "Tag $tag but src-tauri/tauri.conf.json says $version. Make them match."; exit 1; }
+          release=true
+          if [ "$GITHUB_REF_TYPE" = branch ] && [ "$GITHUB_EVENT_NAME" = push ] \
+             && git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "$tag already exists; nothing to release. Bump the version to make a new release."
+            release=false
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+
+  linux:
+    name: Linux packages
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    runs-on: ubuntu-22.04 # older glibc so the packages run on more distros
+    env:
+      TAG: ${{ needs.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
       - name: Tauri system libraries
         run: |
           sudo apt-get update
