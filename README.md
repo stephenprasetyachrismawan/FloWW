@@ -8,7 +8,55 @@ Design: [`docs/DESIGN-DECISIONS.md`](docs/DESIGN-DECISIONS.md) ·
 Clickable mockup: [`docs/prototype/floww-prototype.html`](docs/prototype/floww-prototype.html) ·
 Research notes: [`docs/research/context-engineering.md`](docs/research/context-engineering.md)
 
-## Run it
+## Install
+
+Download from [Releases](https://github.com/stephenprasetyachrismawan/FloWW/releases/latest)
+(Linux x86_64). Pick one.
+
+**Desktop app, .deb (Ubuntu/Debian)**
+
+```sh
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.0/FloWW_0.1.0_amd64.deb
+sudo apt install ./FloWW_0.1.0_amd64.deb
+floww                               # or open "FloWW" from the app menu
+```
+
+**Desktop app, AppImage (any distro)**
+
+```sh
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.0/FloWW_0.1.0_amd64.AppImage
+chmod +x FloWW_0.1.0_amd64.AppImage
+./FloWW_0.1.0_amd64.AppImage        # needs libfuse2 (libfuse2t64 on Ubuntu 24.04)
+```
+
+**Web UI in your browser (floww-web)**
+
+```sh
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.0/floww-web-v0.1.0-linux-x86_64.tar.gz
+tar xzf floww-web-v0.1.0-linux-x86_64.tar.gz
+install -Dm755 floww-web-v0.1.0-linux-x86_64/floww-web ~/.local/bin/floww-web
+floww-web --open                    # default port 7171
+```
+
+`floww-web` prints a link like `http://127.0.0.1:7171/?token=…` and `--open` opens it. The token
+is new on every start and gives full access, so keep the link private. Other options:
+`--port 8080`, `--token <value>` for a fixed link, `FLOWW_HOME=/path` for another config folder
+(default `~/.config/floww`). It listens on 127.0.0.1 only; from another machine use
+`ssh -L 7171:127.0.0.1:7171 your-server`.
+
+**What FloWW needs on the machine**
+
+- [Claude Code](https://code.claude.com) CLI, signed in (`npm install -g @anthropic-ai/claude-code`,
+  then `claude login`), or a 9router address and key
+- git and Python 3
+- Optional: `psql` to read the local Odoo database (read-only), `secret-tool` (libsecret-tools) to
+  keep tokens in the keyring (or set `FLOWW_SECRET_<NAME>`), `gh` CLI or a GitHub token for PRs
+
+**First run:** choose your Claude login or 9router, pick a model and send a test message, then
+**Add workspace** with your repo path. FloWW finds the Odoo command in `.vscode/launch.json`, the
+base branch, and the local database.
+
+## Run from source
 
 ### Web UI on localhost
 
@@ -16,10 +64,6 @@ Research notes: [`docs/research/context-engineering.md`](docs/research/context-e
 pnpm install && pnpm build          # build the UI once
 cargo run --release -p floww-server --bin floww-web -- --port 7171
 ```
-
-Open the link it prints (`http://127.0.0.1:7171/?token=…`). The token is new on every start and
-gives full access, so keep the link private. `--open` opens your browser, `--token` sets a fixed
-token, `FLOWW_HOME` picks another config folder (default `~/.config/floww`).
 
 ### Desktop app
 
@@ -30,19 +74,21 @@ pnpm tauri build                    # .deb and AppImage in target/release/bundle
 
 The desktop app runs the same local server on a random port; nothing else changes.
 
-### Requirements (Linux)
+### Build requirements (Linux)
 
-- Rust (stable), Node 22+, pnpm 10+, git, Python 3
-- [Claude Code](https://code.claude.com) CLI, signed in (`claude login`) or a 9router instance
-- `psql` for reading the local Odoo database (optional, read-only)
-- `secret-tool` (libsecret-tools) to keep tokens in the keyring; or set `FLOWW_SECRET_<NAME>`
-- `gh` CLI or a GitHub token for pull requests
+- Rust (stable), Node 22+, pnpm 10+, plus the runtime tools above
 - Desktop build only:
 
   ```sh
   sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
     libayatana-appindicator3-dev libssl-dev libsecret-1-dev patchelf
   ```
+
+### Releasing
+
+Add `docs/release-notes/vX.Y.Z.md`, bump the version in `src-tauri/tauri.conf.json`, then push a
+tag `vX.Y.Z`. The Release workflow builds the .deb, AppImage and floww-web tarball and publishes
+them.
 
 ## How a request flows
 
