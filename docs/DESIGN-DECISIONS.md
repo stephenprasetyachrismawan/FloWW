@@ -143,7 +143,8 @@ Step 5, 11, dan update graph berjalan **paralel di background**.
 │   ├── workspace.toml        # config per orang
 │   ├── brain/                # worktree orphan branch floww/brain (vault Obsidian)
 │   ├── worktrees/<prd-id>/
-│   └── runs/<prd-id>.json    # state pipeline
+│   ├── runs/<prd-id>.json    # state pipeline
+│   └── cache/brain.db        # index lokal dari vault (graph, teks, embedding)
 └── .vscode/launch.json
 
 ~/.config/floww/app.toml      # first run: auth AI, model default, daftar workspace
@@ -212,7 +213,8 @@ brain/
 ├── decisions/<prd-id>.md          # keputusan grill-me: pertanyaan, opsi, rekomendasi AI, pilihan manusia, alasan
 ├── opinions/<topic>.md            # pendapat / preferensi manusia (mis. "lebih suka constraint di model, bukan di view")
 ├── rules/<rule>.md                # business rules
-├── flows/<business-flow>.md       # flow normal (order-to-cash, procure-to-pay, ...)
+├── flows/<business-flow>.md       # flow besar (order-to-cash, procure-to-pay, ...)
+│   └── <business-flow>/<micro>.md # alur kecil + tabel keputusan, dibuat saat dibutuhkan
 ├── understanding/
 │   ├── people/<user>.md           # yang dikuasai, yang masih ragu, yang belum tahu
 │   └── team.md                    # peta gabungan + area yang tidak ada orang paham
@@ -256,6 +258,68 @@ flows: [[flows/order-to-cash]]
 **Kenapa:** 7 kasus invoice dobel di Oktober (Rp 41,8 juta).
 **Berlaku:** semua SO dengan pengiriman parsial, batal, atau backorder.
 ```
+
+### Brain tetap pintar, tidak mengarang, dan hemat
+
+**Prinsip 1: pisahkan fakta dan tafsiran.**
+
+| Lapis | Contoh | Ditulis oleh | Bisa halusinasi? |
+|---|---|---|---|
+| Fakta | model, field, method, `_inherit`, view, versi manifest, commit, hasil test | Rust parser + graphify + DB introspection | Tidak |
+| Tafsiran | flow, alur kecil, rules, ringkasan fitur, pemahaman manusia | AI (model murah, template ketat) | Bisa, jadi wajib berjangkar |
+
+**Prinsip 2: setiap tafsiran wajib punya jangkar.** Setiap baris tafsiran menunjuk minimal satu fakta: method/field/model, file:baris, commit, PRD id, atau decision id. Sebelum catatan disimpan, Rust memvalidasi:
+- jangkar ada di graph (method/field benar-benar ada),
+- link Obsidian valid,
+- frontmatter sesuai schema,
+- rule baru tidak duplikat (pencarian teks + semantik terhadap rules yang ada).
+
+Kalau gagal, catatan ditolak atau ditandai `unverified`. AI tidak bisa menulis tentang method yang tidak ada.
+
+**Prinsip 3: tingkat kepercayaan terlihat.** Setiap catatan/baris punya `trust: fact | confirmed | draft`.
+- `fact` = dari kode, `confirmed` = disetujui manusia, `draft` = tebakan AI.
+- Saat coding, AI hanya **mengandalkan** `fact` + `confirmed`. `draft` hanya petunjuk, dan AI wajib menyebut kalau ia memakainya.
+
+**Alur kecil (micro-flow) dengan tabel keputusan**
+
+- Flow besar (`flows/<flow>.md`, 5–8 langkah) dibuat dari kode saat onboarding.
+- Alur kecil (`flows/<flow>/<micro-flow>.md`, maks ~40 baris) dibuat **saat dibutuhkan**: ketika PRD, feedback, bug, atau human test menyentuh jalur itu. Brain jadi paling detail di area yang paling sering berubah.
+- Isi utama alur kecil adalah **tabel keputusan**, bukan prosa:
+
+```markdown
+---
+type: micro-flow
+parent: [[flows/order-to-cash]]
+trust: confirmed
+anchors:
+  - sale.order.line._compute_qty_to_invoice@3f9a1c2
+  - sale.order._create_invoices@b71e004
+---
+# Pengiriman parsial → invoice
+
+| Kondisi | Hasil | Rule | Kode | Test | Trust |
+|---|---|---|---|---|---|
+| Kirim parsial lalu batal | Qty batal diabaikan | [[rules/no-double-invoice]] | `_compute_qty_to_invoice` L91 | test_cancel_then_redeliver | confirmed |
+| Backorder 2x | Ikuti rantai backorder | [[rules/no-double-invoice]] | `_compute_qty_to_invoice` L94 | test_backorder_twice | confirmed |
+| Invoice sebelum kirim ulang | Tidak buat invoice baru | [[rules/no-double-invoice]] | `_create_invoices` L210 | — | draft |
+```
+
+- Tiap baris bisa dicek, dan langsung jadi **test case TDD + human test**. Kolom test kosong = celah yang ketahuan dan masuk ke grill berikutnya.
+
+**Hemat: AI tidak membaca seluruh vault**
+
+- **Vault Obsidian tetap satu-satunya sumber kebenaran.** FloWW membangun **cache index lokal** dari vault (`.floww/cache/brain.db`, gitignored, dibangun ulang per mesin):
+  - graph: node, link, jangkar, hash kode;
+  - pencarian teks (SQLite FTS5);
+  - **pencarian semantik**: embedding dari model lokal multilingual (`fastembed`/ONNX, mis. `multilingual-e5-small`), offline dan gratis, tanpa API key tambahan.
+- **Retrieval bertingkat:** semantik + teks hanya untuk menemukan *titik masuk* dari kalimat request → lalu graph diperluas lewat jangkar (modul → method → alur kecil → rules → keputusan). Hasil akhir selalu berjangkar, jadi tetap bisa dijelaskan ("dipilih karena link ke `sale_custom`").
+- **Paket konteks per step dengan batas token** (bisa diatur tim). Default: grill/PRD ~6k, develop ~10k, ringkasan brain ~3k. Urutan prioritas: rules & keputusan `confirmed` → tabel alur kecil → fakta graph → `draft`. Kalau lewat batas, `draft` dipotong duluan. Isi paket tercatat di tab History.
+- **Cache berbasis hash:** setiap jangkar menyimpan git blob sha method/file. Kode tidak berubah → catatan tidak disentuh. Kode berubah → hanya catatan itu yang diproses.
+
+**Catatan stale**
+- Saat hash jangkar berubah (commit/merge), model murah membandingkan diff dengan baris tabel terkait.
+- Masih sesuai → hash diperbarui, `trust` tetap.
+- Berubah → baris turun ke `draft` dan muncul di Brain → **Please confirm**. Manusia hanya melihat yang benar-benar berubah.
 
 ---
 
