@@ -144,7 +144,8 @@ pub struct WorkspaceConfig {
     pub http_port: u16,
     pub launch_config: Option<String>,
     pub github_token_ref: Option<String>,
-    pub ai: AiAuth,
+    /// `None` means: use the app-wide auth chosen on first run.
+    pub ai: Option<AiAuth>,
     pub models: Models,
     /// Local overrides of team settings. Only set keys win.
     pub overrides: TeamOverrides,
@@ -159,7 +160,7 @@ impl Default for WorkspaceConfig {
             http_port: 8069,
             launch_config: None,
             github_token_ref: None,
-            ai: AiAuth::Subscription,
+            ai: None,
             models: Models::default(),
             overrides: TeamOverrides::default(),
         }
@@ -173,6 +174,23 @@ pub struct TeamOverrides {
     pub language: Option<String>,
     pub full_suite: Option<bool>,
     pub develop_max_iterations: Option<u32>,
+}
+
+/// App-wide settings, stored in `~/.config/floww/app.toml`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct AppConfig {
+    /// `None` until the first-run screen is finished.
+    pub ai: Option<AiAuth>,
+    pub default_model: Option<String>,
+    pub workspaces: Vec<WorkspaceEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkspaceEntry {
+    pub id: String,
+    pub name: String,
+    pub path: std::path::PathBuf,
 }
 
 /// What the app actually uses.
@@ -273,7 +291,7 @@ mod tests {
         let cfg = load(dir.path()).unwrap();
         assert_eq!(cfg.team.base_branch, "preprod");
         assert_eq!(cfg.team.steps.develop.skills, vec!["tdd", "sdd"]);
-        assert_eq!(cfg.workspace.ai, AiAuth::Subscription);
+        assert_eq!(cfg.workspace.ai, None);
     }
 
     #[test]
@@ -315,10 +333,10 @@ mod tests {
             name: "acme-odoo".into(),
             initials: "SP".into(),
             db: "acme_dev".into(),
-            ai: AiAuth::Router {
+            ai: Some(AiAuth::Router {
                 url: "http://localhost:20128".into(),
                 token_ref: "keyring:floww-9router".into(),
-            },
+            }),
             ..Default::default()
         };
         write_toml(&dir.path().join(WORKSPACE_CONFIG_PATH), &ws).unwrap();

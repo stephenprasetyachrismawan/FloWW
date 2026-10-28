@@ -20,8 +20,8 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
-      - run: cargo test -p floww-core
-      - run: cargo clippy -p floww-core --all-targets -- -D warnings
+      - run: cargo test -p floww-core -p floww-engine
+      - run: cargo clippy -p floww-core -p floww-engine --all-targets -- -D warnings
 
   ui:
     name: UI

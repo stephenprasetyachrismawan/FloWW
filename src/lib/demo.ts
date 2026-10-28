@@ -108,7 +108,7 @@ export const DEMO_CONFIG: EffectiveConfig = {
     http_port: 8069,
     launch_config: "Odoo 17 (acme)",
     github_token_ref: null,
-    ai: { mode: "subscription" },
+    ai: null,
     models: { default: "claude-sonnet-5-5", prd: null, develop: null, brain: null, commit: null },
   },
 };

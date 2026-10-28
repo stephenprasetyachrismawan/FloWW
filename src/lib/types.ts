@@ -43,7 +43,7 @@ export interface WorkspaceConfig {
   http_port: number;
   launch_config: string | null;
   github_token_ref: string | null;
-  ai: AiAuth;
+  ai: AiAuth | null;
   models: {
     default: string | null;
     prd: string | null;

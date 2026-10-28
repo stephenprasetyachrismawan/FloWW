@@ -1,0 +1,22 @@
+[package]
+name = "floww-engine"
+description = "FloWW pipeline engine: PRD runs, Claude Code runner, git, database lock, Odoo, brain"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+floww-core = { path = "../floww-core" }
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+thiserror.workspace = true
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-util", "sync", "time", "fs"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "std"] }
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rand = "0.9"
+tracing = "0.1"
+
+[dev-dependencies]
+tempfile.workspace = true
