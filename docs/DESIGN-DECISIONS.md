@@ -321,6 +321,37 @@ anchors:
 - Masih sesuai → hash diperbarui, `trust` tetap.
 - Berubah → baris turun ke `draft` dan muncul di Brain → **Please confirm**. Manusia hanya melihat yang benar-benar berubah.
 
+### Context engineering (berbasis riset)
+
+Referensi lengkap: `docs/research/context-engineering.md`.
+
+**Cara FloWW memberi konteks ke Claude Code**
+
+1. **Urutan paket konteks** (ramah prompt cache): bagian stabil di depan (aturan tim, daftar skill, fakta workspace) → rules & keputusan `confirmed` → tabel alur kecil → fakta API → tugas step ini di paling akhir.
+2. **Kutip dulu:** sebelum coding, AI wajib mengutip baris rule/tabel keputusan yang dipakai. Kutipan divalidasi terhadap brain.
+3. **Fakta API:** paket develop selalu berisi daftar field (nama, tipe, relasi) dan signature method model yang disentuh, dari DB lokal + parser. Mencegah field/method karangan.
+4. **Kode tidak dimasukkan ke paket.** Brain memberi peta (anchor file:method) dan rules; Claude Code membaca kodenya sendiri (grep/read).
+5. **CLAUDE.md worktree minimal** (≤ ~60 baris, gitignored): perintah test/upgrade Odoo, konvensi tim yang tidak standar, rules `confirmed` untuk modul yang disentuh. Tidak menuang isi brain atau ringkasan repo.
+
+**Develop dalam sesi pendek**
+
+- Langkah baru **"cari lokasi"** di awal Building: graph + Personalized PageRank dari konsep di PRD → kandidat file/method → diberikan ke sesi develop.
+- **Satu sesi Claude Code baru per baris kriteria selesai / tabel keputusan:** baca `progress.md` + paket konteks → test merah → hijau → commit lokal kecil → perbarui `progress.md`. Git + `progress.md` jadi memori antar sesi. Batas iterasi TDD berlaku per baris.
+- **Hook di worktree** (`.claude/settings.json`, gitignored): setelah setiap edit, cek syntax Python, validasi XML view, path di `__manifest__.py`, dan conflict marker. Gagal → pesan berisi apa yang salah dan cara memperbaikinya. Tidak memblokir perintah.
+
+**Brain yang tidak rusak pelan-pelan**
+
+- **Update per baris:** AI hanya mengusulkan operasi tambah/ubah/hapus pada baris ber-ID. Rust menggabungkan secara deterministik; AI tidak menulis ulang seluruh catatan.
+- **Skor berguna:** tiap baris mencatat berapa kali dipakai di run berhasil dan gagal. Dipakai untuk mengurutkan paket konteks; baris yang sering muncul di run gagal ditandai untuk ditinjau.
+- **Detektor konflik:** rule baru yang mirip tapi bertentangan dengan rule lama ditandai `conflict` dan ditanyakan ke manusia.
+- **Bisa digantikan, tidak dihapus:** rule/keputusan punya `valid_from` dan `supersedes`. Histori tetap ada.
+- **Usulan link otomatis** saat catatan dibuat, dikonfirmasi manusia.
+- **Jejak asal:** setiap baris menyimpan author, run id, dan model. Mudah di-revert.
+
+**Pengukuran**
+
+Per PRD dicatat: token per step, iterasi TDD, ronde feedback manusia, hasil test, dan isi paket konteks. Data ini dipakai untuk menyetel batas token dan urutan paket, bukan tebakan.
+
 ---
 
 ## 5. Onboarding (AI-first)
