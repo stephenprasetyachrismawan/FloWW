@@ -20,3 +20,7 @@ dist-ssr
 .idea
 .DS_Store
 *.sw?
+
+# Browser test output
+e2e/node_modules
+e2e-shots

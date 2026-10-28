@@ -1,15 +1,43 @@
-import type { Phase } from "./types";
+import type { Prd, Step } from "./types";
 
-/** Same ranges as `Step::phase` in crates/floww-core/src/pipeline.rs. */
-export const PHASES: { key: Phase; label: string; from: number; to: number }[] = [
-  { key: "request", label: "Request", from: 1, to: 5 },
-  { key: "planning", label: "Planning", from: 6, to: 7 },
-  { key: "building", label: "Building", from: 8, to: 11 },
-  { key: "testing", label: "Testing", from: 12, to: 15 },
-  { key: "ship", label: "Ship", from: 16, to: 19 },
-  { key: "done", label: "Done", from: 20, to: 20 },
+export type Phase = "request" | "planning" | "building" | "testing" | "ship" | "done";
+
+/** Same grouping as `Step::phase` in crates/floww-core/src/pipeline.rs. */
+const PHASE_OF: Record<Step, Phase> = {
+  new_request: "request",
+  check_brain: "request",
+  read_database: "request",
+  read_codebase: "request",
+  update_brain: "request",
+  grill_prd: "planning",
+  approve_prd: "planning",
+  create_branch: "building",
+  develop: "building",
+  full_suite: "building",
+  log_changes: "building",
+  start_odoo: "testing",
+  upgrade_modules: "testing",
+  human_test: "testing",
+  feedback: "testing",
+  commit_message: "ship",
+  commit: "ship",
+  push: "ship",
+  pull_request: "ship",
+  done: "done",
+};
+
+export const PHASES: { key: Phase; label: string }[] = [
+  { key: "request", label: "Request" },
+  { key: "planning", label: "Planning" },
+  { key: "building", label: "Building" },
+  { key: "testing", label: "Testing" },
+  { key: "ship", label: "Ship" },
+  { key: "done", label: "Done" },
 ];
 
-export function phaseOf(step: number): Phase {
-  return PHASES.find((p) => step >= p.from && step <= p.to)?.key ?? "done";
-}
+export const phaseOf = (step: Step): Phase => PHASE_OF[step];
+
+export const TYPE_LABEL: Record<Prd["type"], string> = { bug: "Bug", improve: "Improvement", feature: "Feature" };
+
+/** "Your turn" means a person has to act. */
+export const needsYou = (p: Prd) => p.status === "needs" || p.status === "failed" || p.status === "paused";

@@ -41,6 +41,8 @@ pub struct Workspace {
     running: Mutex<HashSet<String>>,
     odoo: Mutex<HashMap<String, (Child, Guard)>>,
     brain_mu: Mutex<()>,
+    /// Last "needs you" action notified per PRD, so the same ask is not repeated.
+    notified: std::sync::Mutex<HashMap<String, String>>,
 }
 
 struct Inner {
@@ -130,6 +132,21 @@ pub struct Settings {
     pub model: Option<String>,
     pub develop_model: Option<String>,
     pub github_token: Option<String>,
+}
+
+/// A path inside the brain: relative, no `..`, no NUL. Absolute paths would
+/// escape the vault because `Path::join` replaces the base with them.
+pub fn safe_rel(p: &str) -> bool {
+    let path = std::path::Path::new(p);
+    !p.contains('\0')
+        && !p.starts_with('/')
+        && !p.starts_with('\\')
+        && path.components().all(|c| {
+            matches!(
+                c,
+                std::path::Component::Normal(_) | std::path::Component::CurDir
+            )
+        })
 }
 
 fn new_id() -> String {
@@ -230,6 +247,7 @@ impl Engine {
             running: Mutex::new(HashSet::new()),
             odoo: Mutex::new(HashMap::new()),
             brain_mu: Mutex::new(()),
+            notified: std::sync::Mutex::new(HashMap::new()),
         });
         self.0
             .workspaces
@@ -637,7 +655,11 @@ impl Engine {
         let out = f(p);
         store::save(&ws.paths.runs(), p)?;
         let became_needs =
-            p.status == Status::Needs && (before.0 != Status::Needs || before.1 != p.action);
+            p.status == Status::Needs && (before.0 != Status::Needs || before.1 != p.action) && {
+                let mut seen = ws.notified.lock().expect("notified lock");
+                let action = p.action.clone().unwrap_or_default();
+                seen.insert(p.id.clone(), action.clone()).as_deref() != Some(action.as_str())
+            };
         let snapshot = p.clone();
         drop(prds);
         if became_needs {
@@ -2556,7 +2578,7 @@ impl Engine {
     }
 
     pub async fn brain_list(&self, wid: &str, folder: &str) -> R<Vec<brain::Note>> {
-        if folder.contains("..") {
+        if !safe_rel(folder) {
             return Err("invalid folder".into());
         }
         let ws = self.ws(wid).await?;
@@ -2564,7 +2586,7 @@ impl Engine {
     }
 
     pub async fn brain_note(&self, wid: &str, path: &str) -> R<serde_json::Value> {
-        if path.contains("..") {
+        if !safe_rel(path) {
             return Err("invalid path".into());
         }
         let ws = self.ws(wid).await?;
@@ -2573,7 +2595,7 @@ impl Engine {
     }
 
     pub async fn brain_confirm(&self, wid: &str, path: &str) -> R<()> {
-        if path.contains("..") {
+        if !safe_rel(path) {
             return Err("invalid path".into());
         }
         let ws = self.ws(wid).await?;
@@ -2636,7 +2658,7 @@ impl Engine {
         accept: bool,
         text: Option<String>,
     ) -> R<()> {
-        if !path.starts_with("_pending/") || path.contains("..") {
+        if !path.starts_with("_pending/") || !safe_rel(path) {
             return Err("invalid pending note".into());
         }
         let ws = self.ws(wid).await?;

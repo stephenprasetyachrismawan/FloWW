@@ -35,6 +35,8 @@
   --ai: #4a6fd0;
   --ok: #3b8a5a;
   --bad: #c24646;
+  --add: #eaf5ee;
+  --del: #fbeded;
   --pop: 0 2px 6px rgb(20 20 24 / 0.08), 0 16px 40px rgb(20 20 24 / 0.12);
 }
 
@@ -56,6 +58,8 @@
     --ai: #7fa0f0;
     --ok: #6cc08d;
     --bad: #f08a8a;
+    --add: #17291e;
+    --del: #331c1e;
     --pop: 0 2px 6px rgb(0 0 0 / 0.4), 0 16px 40px rgb(0 0 0 / 0.45);
     color-scheme: dark;
   }
@@ -77,6 +81,8 @@
   --ai: #7fa0f0;
   --ok: #6cc08d;
   --bad: #f08a8a;
+  --add: #17291e;
+  --del: #331c1e;
   --pop: 0 2px 6px rgb(0 0 0 / 0.4), 0 16px 40px rgb(0 0 0 / 0.45);
   color-scheme: dark;
 }

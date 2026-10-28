@@ -20,5 +20,7 @@ export default defineConfig(() => ({
     host: host || false,
     hmr: host ? { protocol: "ws", host, port: 1421 } : undefined,
     watch: { ignored: ["**/src-tauri/**", "**/crates/**", "**/target/**"] },
+    // `pnpm dev` talks to a running `floww-web` (default port 7171).
+    proxy: { "/api": { target: "http://127.0.0.1:7171", changeOrigin: true } },
   },
 }));

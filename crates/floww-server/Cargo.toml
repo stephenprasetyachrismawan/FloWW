@@ -1,0 +1,29 @@
+[package]
+name = "floww-server"
+description = "Local HTTP API and web UI for FloWW (used by the desktop app and `floww-web`)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "floww-web"
+path = "src/main.rs"
+
+[dependencies]
+floww-core = { path = "../floww-core" }
+floww-engine = { path = "../floww-engine" }
+serde.workspace = true
+serde_json.workspace = true
+axum = { version = "0.8", features = ["json", "query", "tokio", "http1"], default-features = false }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+futures-util = { version = "0.3", default-features = false }
+rust-embed = { version = "8", features = ["include-exclude"] }
+mime_guess = "2"
+rand = "0.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "ansi"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+reqwest = { version = "0.12", default-features = false, features = ["json"] }

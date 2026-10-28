@@ -250,7 +250,10 @@ pub async fn install(source: &str, force: bool) -> Result<InstallResult, String>
         copy_dir(src_path, &staging)?;
     } else {
         let s = staging.to_string_lossy().into_owned();
-        git::git(&target_root, &["clone", "--depth", "1", source, &s]).await?;
+        if source.starts_with('-') {
+            return Err("a skill source cannot start with '-'".into());
+        }
+        git::git(&target_root, &["clone", "--depth", "1", "--", source, &s]).await?;
     }
     if !staging.join("SKILL.md").exists() {
         let _ = std::fs::remove_dir_all(&staging);

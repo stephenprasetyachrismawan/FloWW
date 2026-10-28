@@ -23,17 +23,49 @@ pub mod worktree_files;
 
 pub use engine::Engine;
 
+use pulldown_cmark::{CowStr, Event, Tag};
+
+/// Links and images may only point at web pages, mail, or anchors.
+/// PRD text comes from the AI and could carry `javascript:` links.
+fn safe_url(url: &str) -> bool {
+    let u = url.trim().to_ascii_lowercase();
+    u.starts_with("http://")
+        || u.starts_with("https://")
+        || u.starts_with("mailto:")
+        || u.starts_with('#')
+}
+
 /// Render PRD markdown as HTML for the viewer and "Copy HTML".
 pub fn markdown_to_html(md: &str) -> String {
     let mut opts = pulldown_cmark::Options::empty();
     opts.insert(pulldown_cmark::Options::ENABLE_TABLES);
     opts.insert(pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
     opts.insert(pulldown_cmark::Options::ENABLE_TASKLISTS);
-    // Raw HTML in markdown is shown as text, never rendered.
     let events = pulldown_cmark::Parser::new_ext(md, opts).map(|e| match e {
-        pulldown_cmark::Event::Html(h) | pulldown_cmark::Event::InlineHtml(h) => {
-            pulldown_cmark::Event::Text(h)
-        }
+        // Raw HTML in markdown is shown as text, never rendered.
+        Event::Html(h) | Event::InlineHtml(h) => Event::Text(h),
+        Event::Start(Tag::Link {
+            link_type,
+            dest_url,
+            title,
+            id,
+        }) if !safe_url(&dest_url) => Event::Start(Tag::Link {
+            link_type,
+            dest_url: CowStr::Borrowed("#"),
+            title,
+            id,
+        }),
+        Event::Start(Tag::Image {
+            link_type,
+            dest_url,
+            title,
+            id,
+        }) if !safe_url(&dest_url) => Event::Start(Tag::Image {
+            link_type,
+            dest_url: CowStr::Borrowed(""),
+            title,
+            id,
+        }),
         other => other,
     });
     let mut out = String::new();
@@ -51,5 +83,26 @@ mod tests {
         assert!(html.contains("<h1>T</h1>"));
         assert!(!html.contains("<script>"));
         assert!(html.contains("<table>"));
+    }
+
+    #[test]
+    fn markdown_drops_script_links() {
+        let html = super::markdown_to_html(
+            "[click](javascript:alert(1)) [ok](https://odoo.com) ![x](data:image/svg+xml,evil)",
+        );
+        assert!(!html.contains("javascript:"), "{html}");
+        assert!(!html.contains("data:image"), "{html}");
+        assert!(html.contains("https://odoo.com"));
+    }
+
+    #[test]
+    fn brain_paths_stay_inside_the_vault() {
+        use crate::engine::safe_rel;
+        assert!(safe_rel("rules/no-double-invoice.md"));
+        assert!(safe_rel(""));
+        assert!(!safe_rel("/etc/passwd"));
+        assert!(!safe_rel("../secrets"));
+        assert!(!safe_rel("rules/../../x"));
+        assert!(!safe_rel("a\0b"));
     }
 }

@@ -2,146 +2,199 @@ import { useEffect, useState } from "react";
 
 import { Page, PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { inTauri, launchConfigs, loadWorkspace } from "@/lib/api";
-import type { EffectiveConfig, OdooLaunch } from "@/lib/types";
+import { api } from "@/lib/api";
+import { useAction, useStore } from "@/lib/store";
 
-const MODELS = [
-  { id: "claude-opus-5-5", note: "Strongest, slower" },
-  { id: "claude-sonnet-5-5", note: "Balanced" },
-  { id: "claude-haiku-5-5", note: "Fast and cheap" },
-];
-const REPO_KEY = "floww.repo";
-
-function readRepo(): string {
-  try {
-    return localStorage.getItem(REPO_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
+const NOTES: Record<string, string> = { "claude-opus-5-5": "Strongest, slower", "claude-sonnet-5-5": "Balanced", "claude-haiku-5-5": "Fast and cheap" };
 
 export function SettingsPage() {
-  const [repo, setRepo] = useState(readRepo);
-  const [cfg, setCfg] = useState<EffectiveConfig | null>(null);
-  const [launches, setLaunches] = useState<OdooLaunch[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  async function load(path: string) {
-    setError(null);
-    try {
-      const [c, l] = await Promise.all([loadWorkspace(path), launchConfigs(path)]);
-      setCfg(c);
-      setLaunches(l);
-      try {
-        localStorage.setItem(REPO_KEY, path);
-      } catch {
-        // Remembering the folder is a convenience only.
-      }
-    } catch (e) {
-      setError(String(e));
-    }
-  }
+  const { wsId, workspace, app, refreshWorkspace, refreshApp, setWsId } = useStore();
+  const { run, busy } = useAction();
+  const [models, setModels] = useState<string[]>(Object.keys(NOTES));
+  const [f, setF] = useState<Record<string, string | number | boolean>>({});
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   useEffect(() => {
-    if (repo || !inTauri) void load(repo);
-    // Load once when the page opens.
+    void api.models().then(setModels).catch(() => undefined);
   }, []);
+  useEffect(() => {
+    if (!workspace) return;
+    const c = workspace.config;
+    setF({
+      base_branch: c.team.base_branch,
+      language: c.team.language,
+      max_iterations: String(c.team.steps.develop.max_iterations),
+      full_suite: c.team.steps.full_suite,
+      db: c.workspace.db,
+      launch_config: c.workspace.launch_config ?? "",
+      http_port: c.workspace.http_port,
+      model: c.workspace.models.default ?? "",
+      develop_model: c.workspace.models.develop ?? "default",
+      github_token: "",
+    });
+  }, [workspace]);
+
+  if (!wsId || !workspace) return <Page>{null}</Page>;
+  const set = (k: string) => (v: string | number | boolean) => setF((x) => ({ ...x, [k]: v }));
+
+  const save = async () => {
+    await run(
+      () =>
+        api.saveSettings(wsId, {
+          base_branch: f.base_branch,
+          language: f.language,
+          max_iterations: Number(f.max_iterations),
+          full_suite: f.full_suite,
+          db: f.db,
+          launch_config: f.launch_config || undefined,
+          http_port: Number(f.http_port),
+          model: f.model,
+          develop_model: f.develop_model,
+          github_token: f.github_token || undefined,
+        }),
+      "Settings saved",
+    );
+    await refreshWorkspace();
+  };
+
+  const modelItems = models.map((m) => (
+    <SelectItem key={m} value={m} description={NOTES[m]}>
+      {m}
+    </SelectItem>
+  ));
 
   return (
     <Page narrow>
-      <PageHeader title="Settings" sub={inTauri ? undefined : "Browser preview: showing example settings."} />
-
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="repo" className="text-[13.5px] font-semibold text-ink">
-          Repository folder
-        </label>
-        <div className="flex gap-2.5">
-          <input
-            id="repo"
-            className="h-[38px] min-w-0 flex-1 rounded-lg border border-line-2 bg-surface px-3 text-ink outline-none focus:border-ink"
-            placeholder="/home/you/work/acme-odoo"
-            value={repo}
-            onChange={(e) => setRepo(e.target.value)}
-          />
-          <Button onClick={() => void load(repo)} disabled={inTauri && !repo.trim()}>
-            Load
-          </Button>
+      <PageHeader title="Settings" sub={workspace.path} />
+      <section className="flex flex-col gap-4.5">
+        <div>
+          <h3 className="text-base font-semibold">For the whole team</h3>
+          <p className="text-[13.5px] text-muted">Saved in the shared brain. Changes are recorded with your name.</p>
         </div>
-        {error ? <p className="text-[13px] text-bad">{error}</p> : null}
+        <div className="grid grid-cols-2 gap-4.5 max-md:grid-cols-1">
+          <Field label="New work starts from" htmlFor="s-base">
+            <Input id="s-base" value={String(f.base_branch ?? "")} onChange={(e) => set("base_branch")(e.target.value)} />
+          </Field>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13.5px] font-semibold text-ink">AI writes in</span>
+            <Select value={String(f.language ?? "id")} onValueChange={set("language")}>
+              <SelectTrigger aria-label="AI language">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="id">Bahasa Indonesia</SelectItem>
+                <SelectItem value="en">English</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13.5px] font-semibold text-ink">AI tries before asking you</span>
+            <Select value={String(f.max_iterations ?? "5")} onValueChange={set("max_iterations")}>
+              <SelectTrigger aria-label="AI tries">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["3", "5", "8"].map((n) => (
+                  <SelectItem key={n} value={n}>
+                    {n} times
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2.5 self-end pb-2.5 text-text">
+            <input type="checkbox" className="size-4 accent-[var(--accent)]" checked={Boolean(f.full_suite)} onChange={(e) => set("full_suite")(e.target.checked)} />
+            Run the full test suite after building
+          </label>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-4.5">
+        <div>
+          <h3 className="text-base font-semibold">On this computer</h3>
+          <p className="text-[13.5px] text-muted">Only you. Not shared.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-4.5 max-md:grid-cols-1">
+          <Field label="Local database" htmlFor="s-db">
+            <Input id="s-db" value={String(f.db ?? "")} onChange={(e) => set("db")(e.target.value)} />
+          </Field>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13.5px] font-semibold text-ink">Odoo launch config</span>
+            <Select value={String(f.launch_config || "") || undefined} onValueChange={set("launch_config")}>
+              <SelectTrigger aria-label="Odoo launch config">
+                <SelectValue placeholder={workspace.launches.length ? "Choose" : "None in .vscode/launch.json"} />
+              </SelectTrigger>
+              <SelectContent>
+                {workspace.launches.map((l) => (
+                  <SelectItem key={l.name} value={l.name} description={l.config_file ?? undefined}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Field label="Odoo port" htmlFor="s-port">
+            <Input id="s-port" type="number" value={Number(f.http_port ?? 8069)} onChange={(e) => set("http_port")(Number(e.target.value))} />
+          </Field>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13.5px] font-semibold text-ink">AI model</span>
+            <Select value={String(f.model || app?.default_model || "") || undefined} onValueChange={set("model")}>
+              <SelectTrigger aria-label="AI model">
+                <SelectValue placeholder="App default" />
+              </SelectTrigger>
+              <SelectContent>{modelItems}</SelectContent>
+            </Select>
+            <span className="text-[12.5px] text-faint">{app?.ai?.mode === "router" ? `Through 9router at ${app.ai.url}` : "Signed in with your Claude subscription."}</span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13.5px] font-semibold text-ink">Model for building</span>
+            <Select value={String(f.develop_model ?? "default")} onValueChange={set("develop_model")}>
+              <SelectTrigger aria-label="Model for building">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Same as above</SelectItem>
+                {modelItems}
+              </SelectContent>
+            </Select>
+          </div>
+          <Field label="GitHub token" htmlFor="s-gh" hint={workspace.config.workspace.github_token_ref ? "Saved in your keychain. Type a new one to replace it." : "For opening pull requests. Saved in your keychain. Or sign in to the gh CLI."}>
+            <Input id="s-gh" type="password" value={String(f.github_token ?? "")} onChange={(e) => set("github_token")(e.target.value)} placeholder={workspace.config.workspace.github_token_ref ? "••••••••" : ""} />
+          </Field>
+        </div>
+      </section>
+
+      <div className="flex flex-wrap items-center gap-4.5">
+        <Button variant="primary" disabled={busy} onClick={save}>
+          Save settings
+        </Button>
+        <span className="flex-1" />
+        {confirmRemove ? (
+          <>
+            <span className="text-[13.5px] text-muted">Remove from FloWW? Files and branches stay.</span>
+            <Button
+              size="sm"
+              onClick={async () => {
+                if ((await run(() => api.removeWorkspace(wsId))) !== undefined) {
+                  setWsId(null);
+                  await refreshApp();
+                }
+              }}
+            >
+              Remove
+            </Button>
+            <Button variant="link" onClick={() => setConfirmRemove(false)}>
+              Cancel
+            </Button>
+          </>
+        ) : (
+          <Button variant="link" className="hover:text-bad" onClick={() => setConfirmRemove(true)}>
+            Remove workspace
+          </Button>
+        )}
       </div>
-
-      {cfg ? (
-        <>
-          <section className="flex flex-col gap-4">
-            <div>
-              <h3 className="text-base font-semibold">For the whole team</h3>
-              <p className="text-[13.5px] text-muted">From brain/_floww/team.toml.</p>
-            </div>
-            <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-5 gap-y-1.5 text-[13.5px]">
-              <dt className="text-faint">New work starts from</dt>
-              <dd>{cfg.team.base_branch}</dd>
-              <dt className="text-faint">Branch name</dt>
-              <dd className="font-mono">{cfg.team.feature_branch}</dd>
-              <dt className="text-faint">Building skills</dt>
-              <dd>{cfg.team.steps.develop.skills.join(", ") || "None"}</dd>
-              <dt className="text-faint">AI tries before asking</dt>
-              <dd>{cfg.team.steps.develop.max_iterations} times</dd>
-            </dl>
-          </section>
-
-          <section className="flex flex-col gap-4">
-            <div>
-              <h3 className="text-base font-semibold">On this computer</h3>
-              <p className="text-[13.5px] text-muted">From .floww/workspace.toml. Only you.</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4.5 max-md:grid-cols-1">
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[13.5px] font-semibold text-ink">Odoo launch config</span>
-                <Select
-                  value={cfg.workspace.launch_config ?? undefined}
-                  onValueChange={(v) => setCfg({ ...cfg, workspace: { ...cfg.workspace, launch_config: v } })}
-                >
-                  <SelectTrigger aria-label="Odoo launch config">
-                    <SelectValue placeholder={launches.length ? "Choose" : "No odoo-bin config in launch.json"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {launches.map((l) => (
-                      <SelectItem key={l.name} value={l.name} description={l.config_file ?? undefined}>
-                        {l.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[13.5px] font-semibold text-ink">AI model</span>
-                <Select
-                  value={cfg.workspace.models.default ?? undefined}
-                  onValueChange={(v) =>
-                    setCfg({ ...cfg, workspace: { ...cfg.workspace, models: { ...cfg.workspace.models, default: v } } })
-                  }
-                >
-                  <SelectTrigger aria-label="AI model">
-                    <SelectValue placeholder="Choose" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MODELS.map((m) => (
-                      <SelectItem key={m.id} value={m.id} description={m.note}>
-                        {m.id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span className="text-[12.5px] text-faint">
-                  {cfg.workspace.ai.mode === "router" ? `Through 9router at ${cfg.workspace.ai.url}` : "Signed in with your Claude subscription."}
-                </span>
-              </div>
-            </div>
-            <p className="text-[12.5px] text-faint">Saving settings comes with the workspace setup flow.</p>
-          </section>
-        </>
-      ) : null}
     </Page>
   );
 }
