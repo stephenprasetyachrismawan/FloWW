@@ -1,0 +1,22 @@
+# Rust
+/target/
+
+# Tauri generated capability schemas
+/src-tauri/gen/schemas
+
+# Node
+node_modules
+dist
+dist-ssr
+*.local
+*.log
+
+# FloWW workspace data, if this repo is ever opened as a workspace
+.floww/
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.sw?
