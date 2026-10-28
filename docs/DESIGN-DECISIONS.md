@@ -280,7 +280,12 @@ flows: [[flows/order-to-cash]]
 
 ### Gaya
 - **Font: Anthropic Sans / Serif / Mono** dipanggil lewat `local()` dari font yang terpasang di mesin user, dengan fallback font terbuka. File font **tidak** dibundel atau di-commit, karena repo sumbernya tidak punya lisensi dan hak fontnya milik Anthropic.
-- **Ramah non-teknis**: lapang, kartu besar, bahasa sederhana.
+- **Ramah non-teknis**: lapang, bahasa sederhana, langsung ke inti.
+- **Satu fokus per layar**: warna aksen hanya untuk satu tombol utama. Status ditulis sebagai titik kecil + teks, bukan pill berwarna.
+- **Tampilkan yang perlu saja**: kartu kanban hanya judul, ID + modul, dan satu baris status. Biaya, perintah, dan detail teknis disembunyikan di tab History atau "Show commands".
+- **Sedikit pilihan**: board dibuka dengan daftar "Your turn"; detail PRD hanya 4 tab (Now, PRD, Changes, History); setting dibagi "For the whole team" dan "On this computer".
+- **Dropdown custom** (popover dengan centang dan deskripsi singkat, bisa pakai keyboard), bukan `<select>` bawaan.
+- Layar kerja (grill, test, ship) satu kolom, lebar maks ~800px.
 - **Light default** + dark mode. Aksen **indigo**.
 - Status selalu warna + ikon + teks: hijau = selesai, amber = needs you, biru = AI working, merah = gagal.
 - Label UI bahasa **Inggris**, struktur i18n siap untuk Bahasa Indonesia.
