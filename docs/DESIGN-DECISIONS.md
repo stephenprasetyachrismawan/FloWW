@@ -512,6 +512,27 @@ Needs you · AI gagal / batas loop · PR merged · DB lock bebas.
 2. **Skill** `grill-me`, `tdd`, `sdd` memakai skill yang sudah ada di Claude Code (`~/.claude/skills` / project). Tidak dibundel.
 3. **ID PRD** = inisial user + nomor urut per user, mis. `SP-012`. Counter disimpan di `brain/.counters/<user>.json`, jadi antar anggota tidak pernah bentrok. Inisial diambil dari `git config user.name`, bisa diubah di settings.
 
+## 8b. Status implementasi (fase 1)
+
+Versi web: `floww-web` di `http://127.0.0.1:7171` (token acak per start). Desktop menjalankan server yang sama di port acak.
+
+**Sudah jalan dan teruji** (unit test, test end-to-end engine dengan git sungguhan, test browser Playwright, plus smoke test Claude Code asli):
+- First run (subscription / 9router + model + test message), wizard Add workspace (deteksi repo, launch.json, Postgres, branch; tanya kalau ragu; preprod dibuat kalau belum ada).
+- Alur utama penuh: request → cek brain → fakta DB read-only → baca kode di worktree → grill-me (JSON + `--resume`) → PRD (HTML, copy, edit) → approve → branch → develop per kriteria (sesi baru, `CLAUDE.local.md`, hook cek edit, `progress.md`) → test modul → kunci DB (antre + ambil alih) → upgrade + jalankan Odoo → human test → feedback loop → commit message AI → squash commit → push → PR (token atau `gh`) → selesai + bersihkan worktree.
+- Brain di `floww/brain`: requirements, PRD, decisions, rules (draft → confirm), changes, fakta modul, catatan pemahaman/opini yang wajib dikonfirmasi; sinkron otomatis.
+- Skills per step (disimpan di team.toml), install + scan (skillspector atau pemindai bawaan).
+- Keamanan server lokal: loopback, cek Host, token, CORS hanya untuk webview Tauri, CSP; brain path tidak bisa keluar vault; link PRD disaring.
+
+**Belum dikerjakan** (dicatat supaya jelas):
+- Pencarian semantik dengan embedding lokal: sekarang pencarian teks + graph saja.
+- Integrasi graphify: sekarang graph dari parser Odoo FloWW sendiri.
+- Alur kecil (micro-flow) dengan tabel keputusan yang dibuat AI; folder `flows/` belum diisi otomatis.
+- Cek ulang catatan stale berbasis hash kode, dan skor "dipakai di run gagal" (baru run berhasil yang dihitung).
+- Langkah "cari lokasi" dengan Personalized PageRank sebelum develop (sekarang konteks diambil dari brain + fakta modul).
+- Setup agent yang memperbaiki sendiri (buat venv, createdb); sekarang deteksi + pertanyaan saja.
+- Deteksi PR merged otomatis (sekarang tombol "Check if it is merged").
+- Notifikasi native desktop (sekarang toast + Web Notification API).
+
 ## 9. Ditunda (bukan fase 1)
 
 - Introspeksi DB remote via SSH
