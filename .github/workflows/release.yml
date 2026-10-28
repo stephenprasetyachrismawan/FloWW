@@ -1,12 +1,22 @@
 name: Release
 
-# Push a tag like v0.1.0 to build the Linux packages and publish a GitHub release.
+# Push a tag like v0.1.0, or run it by hand with a tag name, to build the Linux
+# packages and publish a GitHub release. Run by hand, it creates the tag on the
+# commit it builds.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, for example v0.1.0"
+        required: true
 
 permissions:
   contents: write
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   linux:
@@ -14,6 +24,12 @@ jobs:
     runs-on: ubuntu-22.04 # older glibc so the packages run on more distros
     steps:
       - uses: actions/checkout@v4
+      - name: Check tag
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Tag '$TAG' must look like v0.1.0."; exit 1; }
+          want="${TAG#v}"
+          have=$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
+          [ "$want" = "$have" ] || { echo "Tag $TAG but src-tauri/tauri.conf.json says $have. Make them match."; exit 1; }
       - name: Tauri system libraries
         run: |
           sudo apt-get update
@@ -36,7 +52,7 @@ jobs:
       - name: Web server (floww-web)
         run: |
           cargo build --release -p floww-server --bin floww-web
-          name="floww-web-${GITHUB_REF_NAME}-linux-x86_64"
+          name="floww-web-${TAG}-linux-x86_64"
           mkdir -p "dist-release/$name"
           cp target/release/floww-web README.md "dist-release/$name/"
           tar -C dist-release -czf "dist-release/$name.tar.gz" "$name"
@@ -51,13 +67,15 @@ jobs:
 
       - name: Release notes
         run: |
-          notes="docs/release-notes/${GITHUB_REF_NAME}.md"
+          notes="docs/release-notes/${TAG}.md"
           [ -f "$notes" ] || { echo "Missing $notes. Add release notes for this tag."; exit 1; }
           cp "$notes" notes.md
 
       - uses: softprops/action-gh-release@v2
         with:
-          name: FloWW ${{ github.ref_name }}
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
+          name: FloWW ${{ env.TAG }}
           body_path: notes.md
           files: out/*
           fail_on_unmatched_files: true
