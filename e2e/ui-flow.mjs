@@ -109,8 +109,18 @@ try {
   // Add workspace
   await page.getByText("Add your first project").waitFor(T);
   await page.getByRole("button", { name: "Add workspace" }).click();
-  await page.getByLabel("Repository folder").fill(repo);
+  // A typo gets a clear error with the close match.
+  await page.getByLabel("Repository folder").fill(path.join(tmp, "Acme-Odoo") + "/");
   await page.getByRole("button", { name: "Look at this folder" }).click();
+  await page.getByText("Did you mean").waitFor(T);
+  await shot("workspace-typo");
+  // Pick it with the folder picker instead.
+  await page.getByLabel("Repository folder").fill(tmp);
+  await page.getByRole("button", { name: "Choose folder…" }).click();
+  const row = page.getByRole("listitem").filter({ hasText: "acme-odoo" });
+  await row.getByText("git repo").waitFor(T);
+  await shot("workspace-picker");
+  await row.getByRole("button", { name: "Choose" }).click();
   await page.getByText("Look right?").waitFor(T);
   await shot("workspace-review");
   await page.getByRole("button", { name: "Create workspace" }).click();

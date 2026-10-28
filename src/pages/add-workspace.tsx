@@ -1,11 +1,12 @@
-import { Check, LoaderCircle, X } from "lucide-react";
+import { Check, FolderOpen, LoaderCircle, X } from "lucide-react";
 import { useState } from "react";
 
+import { FolderBrowser } from "@/components/folder-browser";
 import { Button } from "@/components/ui/button";
 import { Field, Input, OptionList } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { api } from "@/lib/api";
+import { api, inTauri, pickFolderNative } from "@/lib/api";
 import { useAction, useStore } from "@/lib/store";
 import type { Detection } from "@/lib/types";
 
@@ -17,14 +18,18 @@ export function AddWorkspace({ onClose }: { onClose: () => void }) {
   const [det, setDet] = useState<Detection | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [browsing, setBrowsing] = useState(false);
+  const [browsePath, setBrowsePath] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [form, setForm] = useState({ name: "", initials: "", db: "", base_branch: "preprod", launch_config: "", http_port: 8069, language: "id" });
 
-  async function look() {
+  async function look(target = path) {
+    setPath(target);
+    setBrowsing(false);
     setDetecting(true);
     setError(null);
     try {
-      const d = await api.detect(path);
+      const d = await api.detect(target);
       setDet(d);
       setAnswers({});
       setForm({
@@ -42,6 +47,21 @@ export function AddWorkspace({ onClose }: { onClose: () => void }) {
       setDetecting(false);
     }
   }
+
+  async function choose() {
+    if (inTauri) {
+      try {
+        const picked = await pickFolderNative("Choose the repository folder");
+        if (picked) await look(picked);
+        return;
+      } catch {
+        // No system picker available: use the built-in one.
+      }
+    }
+    setBrowsing(true);
+  }
+
+  const suggestion = error?.match(/Did you mean (.+)\?/)?.[1];
 
   const open = det?.choices.find((c) => !(c.key in answers));
   const stage = !det ? "path" : open ? "ask" : "review";
@@ -66,9 +86,10 @@ export function AddWorkspace({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const title = stage === "path" ? "Which project?" : stage === "ask" ? "One question" : "Look right?";
-  const sub =
-    stage === "path"
+  const title = browsing ? "Choose the repository folder" : stage === "path" ? "Which project?" : stage === "ask" ? "One question" : "Look right?";
+  const sub = browsing
+    ? "Open folders until you reach the repo, then choose it."
+    : stage === "path"
       ? "Each repository gets its own board, database and brain."
       : stage === "ask"
         ? "FloWW found more than one option."
@@ -82,13 +103,23 @@ export function AddWorkspace({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       wide
       footer={
-        stage === "path" ? (
+        browsing ? (
+          <>
+            <Button variant="link" onClick={() => setBrowsing(false)}>
+              Back
+            </Button>
+            <span className="flex-1" />
+            <Button variant="primary" onClick={() => look(browsePath)} disabled={!browsePath}>
+              Use this folder
+            </Button>
+          </>
+        ) : stage === "path" ? (
           <>
             <span className="flex-1" />
             <Button variant="link" onClick={onClose}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={look} disabled={!path.trim() || detecting}>
+            <Button variant="primary" onClick={() => look()} disabled={!path.trim() || detecting}>
               {detecting ? "Looking…" : "Look at this folder"}
             </Button>
           </>
@@ -105,10 +136,33 @@ export function AddWorkspace({ onClose }: { onClose: () => void }) {
         ) : null
       }
     >
-      {stage === "path" ? (
-        <Field label="Repository folder" htmlFor="ws-path" hint="The full path on this computer, for example /home/you/work/acme-odoo.">
-          <Input id="ws-path" value={path} onChange={(e) => setPath(e.target.value)} onKeyDown={(e) => e.key === "Enter" && path.trim() && look()} placeholder="/home/you/work/your-repo" />
-          {error ? <span className="text-[13px] text-bad">{error}</span> : null}
+      {browsing ? <FolderBrowser start={path.trim() || undefined} onChange={setBrowsePath} onPick={(p) => look(p)} /> : null}
+
+      {!browsing && stage === "path" ? (
+        <Field label="Repository folder" htmlFor="ws-path" hint={inTauri ? "Choose it, or paste the full path." : "Choose it, or paste the full path on the computer running FloWW."}>
+          <div className="flex gap-2">
+            <Input
+              id="ws-path"
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && path.trim() && look()}
+              placeholder="/home/you/work/your-repo"
+            />
+            <Button onClick={choose} disabled={detecting}>
+              <FolderOpen className="size-4" />
+              Choose folder…
+            </Button>
+          </div>
+          {error ? (
+            <span className="flex flex-col items-start gap-1 text-[13px] text-bad">
+              {error}
+              {suggestion ? (
+                <Button variant="link" className="text-[13px] text-ink underline" onClick={() => look(suggestion)}>
+                  Use {suggestion}
+                </Button>
+              ) : null}
+            </span>
+          ) : null}
         </Field>
       ) : null}
 
@@ -127,6 +181,9 @@ export function AddWorkspace({ onClose }: { onClose: () => void }) {
 
       {det && stage === "review" ? (
         <>
+          <div className="text-[13.5px] text-muted">
+            Repository <span className="font-mono text-ink">{det.repo}</span>
+          </div>
           <ul className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-[13.5px] max-md:grid-cols-1">
             {det.checks.map((c) => (
               <li key={c.label} className="flex items-start gap-2">
@@ -137,7 +194,7 @@ export function AddWorkspace({ onClose }: { onClose: () => void }) {
               </li>
             ))}
           </ul>
-          {!det.is_git ? <p className="text-[13.5px] text-bad">This folder is not a git repository. FloWW needs git to create branches.</p> : null}
+          {!det.is_git ? <p className="text-[13.5px] text-bad">This folder is not a git repository. Go back and choose the folder that has the .git folder, or run git init there first.</p> : null}
           <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
             <Field label="Workspace name" htmlFor="f-name">
               <Input id="f-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />

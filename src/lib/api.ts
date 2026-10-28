@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type {
-  AppView, Detection, Graph, LockState, Note, Pending, Prd, PrdType, ScanReport, ServerEvent, Skill, WorkspaceView,
+  AppView, Detection, FolderListing, Graph, LockState, Note, Pending, Prd, PrdType, ScanReport, ServerEvent, Skill, WorkspaceView,
 } from "./types";
 
 /** True inside the desktop app. */
@@ -77,6 +77,7 @@ export const api = {
   testAi: (model?: string | null) => call<{ message: string }>("POST", "/ai/test", { model }),
   models: () => call<string[]>("GET", "/models"),
   detect: (path: string) => call<Detection>("POST", "/detect", { path }),
+  folders: (path?: string) => call<FolderListing>("GET", `/folders${path ? `?path=${enc(path)}` : ""}`),
   addWorkspace: (b: {
     path: string; name: string; initials: string; db: string; base_branch: string;
     launch_config: string | null; http_port: number; language?: string;
@@ -135,6 +136,13 @@ export function subscribe(onEvent: (e: ServerEvent) => void, onStatus?: (connect
     clearTimeout(retry);
     es?.close();
   };
+}
+
+/** The system folder picker in the desktop app. Returns null when cancelled. */
+export async function pickFolderNative(title: string): Promise<string | null> {
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const picked = await open({ directory: true, multiple: false, title });
+  return typeof picked === "string" ? picked : null;
 }
 
 /** Open a link in the real browser (desktop) or a new tab (web). */

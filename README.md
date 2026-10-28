@@ -16,25 +16,25 @@ Download from [Releases](https://github.com/stephenprasetyachrismawan/FloWW/rele
 **Desktop app, .deb (Ubuntu/Debian)**
 
 ```sh
-curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.0/FloWW_0.1.0_amd64.deb
-sudo apt install ./FloWW_0.1.0_amd64.deb
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.1/FloWW_0.1.1_amd64.deb
+sudo apt install ./FloWW_0.1.1_amd64.deb
 floww                               # or open "FloWW" from the app menu
 ```
 
 **Desktop app, AppImage (any distro)**
 
 ```sh
-curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.0/FloWW_0.1.0_amd64.AppImage
-chmod +x FloWW_0.1.0_amd64.AppImage
-./FloWW_0.1.0_amd64.AppImage        # needs libfuse2 (libfuse2t64 on Ubuntu 24.04)
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.1/FloWW_0.1.1_amd64.AppImage
+chmod +x FloWW_0.1.1_amd64.AppImage
+./FloWW_0.1.1_amd64.AppImage        # needs libfuse2 (libfuse2t64 on Ubuntu 24.04)
 ```
 
 **Web UI in your browser (floww-web)**
 
 ```sh
-curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.0/floww-web-v0.1.0-linux-x86_64.tar.gz
-tar xzf floww-web-v0.1.0-linux-x86_64.tar.gz
-install -Dm755 floww-web-v0.1.0-linux-x86_64/floww-web ~/.local/bin/floww-web
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.1/floww-web-v0.1.1-linux-x86_64.tar.gz
+tar xzf floww-web-v0.1.1-linux-x86_64.tar.gz
+install -Dm755 floww-web-v0.1.1-linux-x86_64/floww-web ~/.local/bin/floww-web
 floww-web --open                    # default port 7171
 ```
 
@@ -53,7 +53,7 @@ is new on every start and gives full access, so keep the link private. Other opt
   keep tokens in the keyring (or set `FLOWW_SECRET_<NAME>`), `gh` CLI or a GitHub token for PRs
 
 **First run:** choose your Claude login or 9router, pick a model and send a test message, then
-**Add workspace** with your repo path. FloWW finds the Odoo command in `.vscode/launch.json`, the
+**Add workspace** and press **Choose folder…** to pick your repo. FloWW finds the Odoo command in `.vscode/launch.json`, the
 base branch, and the local database.
 
 ## Run from source

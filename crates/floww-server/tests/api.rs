@@ -72,7 +72,7 @@ async fn foreign_host_is_rejected() {
 
 #[tokio::test]
 async fn set_ai_and_errors_are_json() {
-    let (base, token, _d) = start().await;
+    let (base, token, dir) = start().await;
     let c = reqwest::Client::new();
     let r = c
         .post(format!("{base}/api/ai"))
@@ -103,7 +103,26 @@ async fn set_ai_and_errors_are_json() {
         .unwrap();
     assert_eq!(r.status(), 400);
     let v: serde_json::Value = r.json().await.unwrap();
-    assert!(v["error"].as_str().unwrap().contains("is not a folder"));
+    let e = v["error"].as_str().unwrap();
+    assert!(e.contains("/no/such/folder does not exist"), "{e}");
+    assert!(e.contains("/ has no folder named \"no\""), "{e}");
+
+    // The folder picker lists subfolders and marks git repos.
+    std::fs::create_dir_all(dir.path().join("pick/repo/.git")).unwrap();
+    let v: serde_json::Value = c
+        .get(format!("{base}/api/folders"))
+        .query(&[("path", dir.path().join("pick").to_str().unwrap())])
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(v["entries"][0]["name"], "repo");
+    assert_eq!(v["entries"][0]["is_git"], true);
+    let r = c.get(format!("{base}/api/folders")).send().await.unwrap();
+    assert_eq!(r.status(), 401, "folder list needs the token");
 }
 
 #[tokio::test]

@@ -234,6 +234,15 @@ async fn detect(State(st): State<AppState>, Json(b): Json<PathBody>) -> Api {
     ok(st.engine.detect(&b.path).await?)
 }
 
+#[derive(Deserialize)]
+struct FsQ {
+    path: Option<String>,
+}
+
+async fn folders(Query(q): Query<FsQ>) -> Api {
+    ok(floww_engine::folders::list(q.path.as_deref())?)
+}
+
 async fn add_ws(State(st): State<AppState>, Json(b): Json<AddWorkspace>) -> Api {
     ok(json!({ "id": st.engine.add_workspace(b).await? }))
 }
@@ -488,6 +497,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/ai/test", post(test_ai))
         .route("/api/models", get(models))
         .route("/api/detect", post(detect))
+        .route("/api/folders", get(folders))
         .route("/api/workspaces", post(add_ws))
         .route(w, get(get_ws).delete(del_ws))
         .route(&format!("{w}/settings"), put(settings))

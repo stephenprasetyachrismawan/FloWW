@@ -5,6 +5,7 @@ pub mod brain;
 pub mod db;
 pub mod engine;
 pub mod events;
+pub mod folders;
 pub mod git;
 pub mod github;
 pub mod jsonx;

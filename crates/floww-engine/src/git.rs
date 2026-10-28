@@ -19,6 +19,15 @@ pub async fn is_repo(dir: &Path) -> bool {
         .unwrap_or(false)
 }
 
+/// Top folder of the repository that contains `dir`.
+pub async fn toplevel(dir: &Path) -> Option<std::path::PathBuf> {
+    git_quick(dir, &["rev-parse", "--show-toplevel"])
+        .await
+        .ok()
+        .map(|s| std::path::PathBuf::from(s.trim()))
+        .filter(|p| p.is_dir())
+}
+
 pub async fn has_remote(repo: &Path) -> bool {
     git_quick(repo, &["remote"])
         .await

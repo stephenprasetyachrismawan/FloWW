@@ -419,9 +419,10 @@ impl Engine {
     // ---------- workspaces ----------
 
     pub async fn detect(&self, path: &str) -> R<setup::Detection> {
-        let p = PathBuf::from(path.trim());
-        if !p.is_dir() {
-            return Err(format!("{} is not a folder", p.display()));
+        let mut p = crate::folders::check_folder(path)?;
+        // A folder inside a repo means that repo.
+        if let Some(top) = git::toplevel(&p).await {
+            p = top;
         }
         let mut used = Vec::new();
         for ws in self.0.workspaces.read().await.values() {
@@ -431,10 +432,17 @@ impl Engine {
     }
 
     pub async fn add_workspace(&self, req: AddWorkspace) -> R<String> {
-        let repo = PathBuf::from(req.path.trim());
-        if !git::is_repo(&repo).await {
-            return Err(format!("{} is not a git repository", repo.display()));
-        }
+        let repo = crate::folders::check_folder(&req.path)?;
+        let repo = match git::toplevel(&repo).await {
+            Some(top) => top,
+            None => {
+                return Err(format!(
+                    "{} is not a git repository. Choose the folder that has the .git folder, \
+                     or run `git init` there first.",
+                    repo.display()
+                ));
+            }
+        };
         if self
             .0
             .app

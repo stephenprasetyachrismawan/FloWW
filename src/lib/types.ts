@@ -211,3 +211,20 @@ export type ServerEvent =
   | { type: "lock_changed"; workspace: string }
   | { type: "brain_changed"; workspace: string }
   | { type: "notify"; title: string; body: string; kind: "you" | "ok" | "bad" | "info" };
+
+/** Mirrors floww_engine::folders::FolderEntry. */
+export interface FolderEntry {
+  name: string;
+  path: string;
+  is_git: boolean;
+}
+
+/** Mirrors floww_engine::folders::FolderListing. */
+export interface FolderListing {
+  path: string;
+  parent: string | null;
+  home: string;
+  is_git: boolean;
+  entries: FolderEntry[];
+  truncated: boolean;
+}
