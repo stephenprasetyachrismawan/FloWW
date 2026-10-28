@@ -213,7 +213,9 @@ pub struct Prd {
     pub worktree: Option<PathBuf>,
     /// Commit the worktree started from (merge base for the final commit).
     pub base_commit: Option<String>,
-    pub iteration: u32,
+    /// Claude Code session that built this PRD; hints and feedback continue it.
+    #[serde(default)]
+    pub develop_session: Option<String>,
     pub tests: Vec<TestCase>,
     pub odoo: OdooState,
     pub feedback_rounds: u32,
@@ -256,7 +258,7 @@ impl Prd {
             branch: None,
             worktree: None,
             base_commit: None,
-            iteration: 0,
+            develop_session: None,
             tests: Vec::new(),
             odoo: OdooState::Off,
             feedback_rounds: 0,

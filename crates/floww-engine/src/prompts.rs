@@ -3,7 +3,7 @@
 //! Order inside every prompt (cache-friendly, and important things away from
 //! the middle): stable team rules → confirmed rules/decisions → facts → the task.
 
-use crate::model::{Criterion, GrillAnswer, Prd};
+use crate::model::{GrillAnswer, Prd};
 
 pub fn language_name(code: &str) -> &'static str {
     match code {
@@ -118,26 +118,79 @@ pub fn prd_write(answers: &[GrillAnswer]) -> String {
     )
 }
 
-pub fn develop(
-    prd: &Prd,
-    pack: &Pack,
-    row: usize,
-    criterion: &Criterion,
-    test_command: &str,
-    extra: &str,
-) -> String {
-    let total = prd.criteria.len();
+/// The one session that builds the whole PRD: spec first, test first.
+pub fn develop(prd: &Prd, pack: &Pack, test_command: &str) -> String {
+    let criteria: String = prd
+        .criteria
+        .iter()
+        .enumerate()
+        .map(|(i, c)| {
+            format!(
+                "{}. Given {}, when {}, then {}.\n",
+                i + 1,
+                c.given,
+                c.when,
+                c.then
+            )
+        })
+        .collect();
     format!(
-        "{head}{req}\n## PRD\n{prd_md}\n\n## Task: acceptance criterion {n} of {total}\nGiven {g}\nWhen {w}\nThen {t}\n{extra}\nSteps:\n1. Read `.floww-progress.md` for what earlier sessions did.\n2. Quote the business rules and decisions above that apply to this criterion (or say none apply).\n3. Write a failing test for this criterion in the module's tests, run it, confirm it fails.\n4. Change the code until the test passes. Use only fields and methods listed in the facts or that you verified in the code.\n5. Run: `{test_command}`\n6. Commit locally: `git add -A && git commit -m \"wip({id}): criterion {n}\"`.\n7. Append to `.floww-progress.md` what you did and anything the next session must know.\nWork only on this criterion. Finish with one sentence saying whether the tests pass.\n",
+        "{head}{req}\n## PRD (the spec)\n{prd_md}\n\n## Acceptance criteria\n{criteria}\nBuild this PRD in this worktree.\n- The PRD and the criteria are the spec. Build what they ask, nothing more.\n- Work test-first: write a failing test for each criterion, then make it pass.\n- Module tests: `{test_command}`\n- Commit locally as you go: `wip({id}): <what>`.\n{end}",
         head = pack.head(),
         req = request_block(prd),
         prd_md = prd.prd_markdown.as_deref().unwrap_or(""),
-        n = row + 1,
-        g = criterion.given,
-        w = criterion.when,
-        t = criterion.then,
         id = prd.id,
+        end = TESTS_LINE_ASK,
     )
+}
+
+/// Follow-up in the same session: a hint, or what a person found while testing.
+pub fn develop_follow_up(prd: &Prd, notes: &[String], test_command: &str) -> String {
+    let list: String = notes.iter().map(|n| format!("- {n}\n")).collect();
+    format!(
+        "More for {id}:\n{list}\nAdd a test that shows each problem, fix it, run `{test_command}`, and commit as `wip({id}): <what>`.\n{end}",
+        id = prd.id,
+        end = TESTS_LINE_ASK,
+    )
+}
+
+const TESTS_LINE_ASK: &str =
+    "End your reply with one line: `TESTS: PASS`, or `TESTS: FAIL: <what still fails>`.";
+
+/// What the develop session said about the tests.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TestsLine {
+    Pass,
+    Fail(String),
+    /// No `TESTS:` line at all.
+    Missing,
+}
+
+pub fn tests_line(reply: &str) -> TestsLine {
+    let Some(line) = reply
+        .lines()
+        .rev()
+        .map(|l| l.trim().trim_matches('`').trim())
+        .find(|l| l.to_ascii_uppercase().starts_with("TESTS:"))
+    else {
+        return TestsLine::Missing;
+    };
+    let rest = line["TESTS:".len()..].trim();
+    if rest.to_ascii_uppercase().starts_with("PASS") {
+        TestsLine::Pass
+    } else {
+        let why = rest
+            .strip_prefix("FAIL")
+            .or_else(|| rest.strip_prefix("fail"))
+            .unwrap_or(rest)
+            .trim_start_matches(':')
+            .trim();
+        TestsLine::Fail(if why.is_empty() {
+            "the tests fail".into()
+        } else {
+            why.to_string()
+        })
+    }
 }
 
 pub fn commit_message(prd: &Prd, stat: &str, diff: &str, format_hint: &str) -> String {
@@ -151,6 +204,17 @@ pub fn commit_message(prd: &Prd, stat: &str, diff: &str, format_hint: &str) -> S
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_the_tests_line() {
+        assert_eq!(tests_line("Done.\nTESTS: PASS"), TestsLine::Pass);
+        assert_eq!(tests_line("`TESTS: PASS`\n"), TestsLine::Pass);
+        assert_eq!(
+            tests_line("x\nTESTS: FAIL: test_invoice_once still fails"),
+            TestsLine::Fail("test_invoice_once still fails".into())
+        );
+        assert_eq!(tests_line("All good, tests pass."), TestsLine::Missing);
+    }
 
     #[test]
     fn head_respects_budget_and_keeps_rules_first() {

@@ -28,7 +28,6 @@ export function SettingsPage() {
       base_branch: c.team.base_branch,
       feature_branch: c.team.feature_branch || DEFAULT_BRANCH_TEMPLATE,
       language: c.team.language,
-      max_iterations: String(c.team.steps.develop.max_iterations),
       full_suite: c.team.steps.full_suite,
       db: c.workspace.db,
       launch_config: c.workspace.launch_config ?? "",
@@ -49,7 +48,6 @@ export function SettingsPage() {
           base_branch: f.base_branch,
           feature_branch: f.feature_branch,
           language: f.language,
-          max_iterations: Number(f.max_iterations),
           full_suite: f.full_suite,
           db: f.db,
           launch_config: f.launch_config || undefined,
@@ -91,21 +89,6 @@ export function SettingsPage() {
               <SelectContent>
                 <SelectItem value="id">Bahasa Indonesia</SelectItem>
                 <SelectItem value="en">English</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[13.5px] font-semibold text-ink">AI tries before asking you</span>
-            <Select value={String(f.max_iterations ?? "5")} onValueChange={set("max_iterations")}>
-              <SelectTrigger aria-label="AI tries">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {["3", "5", "8"].map((n) => (
-                  <SelectItem key={n} value={n}>
-                    {n} times
-                  </SelectItem>
-                ))}
               </SelectContent>
             </Select>
           </div>

@@ -26,13 +26,25 @@ elif prompt.startswith("The person chose") or prompt.startswith("The person wrot
     out = '```json\n{"done": true}\n```'
 elif "Write the PRD now" in prompt:
     out = '# Invoice dobel\n\n## Masalah\nCancelled moves are invoiced.\n\n```json\n{"criteria": [{"given": "a cancelled delivery", "when": "invoicing", "then": "cancelled qty is ignored"}], "tests": [{"kind": "Normal", "title": "Invoice once", "steps": "Deliver and invoice", "data": "SO1", "expected": "One invoice"}], "rules": [{"id": "no-double-invoice", "title": "Invoiced qty is never invoiced again", "why": "Double billing", "enforced_in": "sale.order.line._compute_qty_to_invoice"}], "modules": ["sale_custom"]}\n```'
-elif "acceptance criterion" in prompt:
+elif "Build this PRD" in prompt:
+    # One session for the whole PRD. First result: a test still fails.
     path = os.path.join("addons", "sale_custom", "models", "sale.py")
     with open(path, "a") as f:
         f.write("\n# skip cancelled moves\n")
     subprocess.run(["git", "add", "-A"], check=True)
-    subprocess.run(["git", "commit", "-q", "-m", "wip: criterion 1"], check=True)
-    out = "Tests pass."
+    subprocess.run(["git", "commit", "-q", "-m", "wip: test and first fix"], check=True)
+    out = "Wrote the test.\nTESTS: FAIL: test_invoice_once"
+elif prompt.startswith("More for"):
+    # A hint continues the same session.
+    if "--resume" not in args or "fake-session" not in args:
+        out = "TESTS: FAIL: not resumed"
+    else:
+        path = os.path.join("addons", "sale_custom", "models", "sale.py")
+        with open(path, "a") as f:
+            f.write("\n# also skip returns\n")
+        subprocess.run(["git", "add", "-A"], check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "wip: hint"], check=True)
+        out = "Fixed.\nTESTS: PASS"
 elif "Write the commit message" in prompt:
     out = '```json\n{"message": "[FIX] sale_custom: ignore cancelled moves\\n\\nPRD: TT-001", "pr_title": "[FIX] sale_custom: ignore cancelled moves", "pr_body": "PRD: TT-001"}\n```'
 else:
@@ -215,8 +227,20 @@ async fn prd_from_request_to_done() {
     );
     assert!(repo.join(".floww/brain/decisions/TT-001.md").exists());
 
-    // Approve → branch → develop (fake AI edits + commits) → tests (fake odoo) → ready to test.
+    // Approve → branch → one develop session. It reports a failing test, so it asks for help.
     engine.approve(&ws, &id).await.unwrap();
+    let p = wait_for(&engine, &ws, &id, "help the AI", |p| {
+        p.step == Step::Develop && p.status == Status::Needs
+    })
+    .await;
+    assert_eq!(p.action.as_deref(), Some("Help the AI"));
+    assert_eq!(p.develop_session.as_deref(), Some("fake-session"));
+    // A hint continues the same session; now the tests pass.
+    engine
+        .hint(&ws, &id, "Returns count as cancelled too".into())
+        .await
+        .unwrap();
+    engine.resume(&ws, &id).await.unwrap();
     let p = wait_for(&engine, &ws, &id, "ready to test", |p| {
         p.step == Step::StartOdoo && p.status == Status::Needs
     })

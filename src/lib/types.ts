@@ -78,7 +78,7 @@ export interface Prd {
   branch: string | null;
   worktree: string | null;
   base_commit: string | null;
-  iteration: number;
+  develop_session: string | null;
   tests: TestCase[];
   odoo: "off" | "starting" | "on";
   feedback_rounds: number;
@@ -101,7 +101,6 @@ export interface AppView {
 
 export interface StepSettings {
   skills: string[];
-  max_iterations: number;
   max_minutes: number;
   context_tokens: number;
 }

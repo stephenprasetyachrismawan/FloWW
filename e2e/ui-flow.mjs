@@ -38,12 +38,12 @@ elif prompt.startswith("The person chose") or prompt.startswith("The person wrot
     out = '\`\`\`json\\n{"done": true}\\n\`\`\`'
 elif "Write the PRD now" in prompt:
     out = '# Invoice dobel saat pengiriman parsial\\n\\n## Masalah\\nCancelled moves are counted, so Create Invoice bills twice.\\n\\n## Tujuan\\nInvoiced quantity is never invoiced again.\\n\\n| Bagian | Perubahan |\\n|---|---|\\n| sale.order.line | Skip cancelled moves |\\n\\n\`\`\`json\\n{"criteria": [{"given": "a delivery cancelled then redelivered", "when": "Create Invoice is pressed", "then": "only one invoice is made"}], "tests": [{"kind": "Normal", "title": "Full delivery invoices once", "steps": "Deliver 10, Create Invoice", "data": "SO/2026/0412", "expected": "One invoice, qty 10"}, {"kind": "Edge", "title": "Cancel then redeliver", "steps": "Deliver 4, cancel, redeliver 4, invoice", "data": "SO/2026/0388", "expected": "One invoice, qty 4"}], "rules": [{"id": "no-double-invoice", "title": "Invoiced quantity is never invoiced again", "why": "7 double invoices in October", "enforced_in": "sale.order.line._compute_qty_to_invoice"}], "modules": ["sale_custom"]}\\n\`\`\`'
-elif "acceptance criterion" in prompt:
+elif "Build this PRD" in prompt or prompt.startswith("More for"):
     p = os.path.join("addons", "sale_custom", "models", "sale.py")
     with open(p, "a") as f: f.write("\\n# skip cancelled moves\\n")
     subprocess.run(["git", "add", "-A"], check=True)
     subprocess.run(["git", "commit", "-q", "-m", "wip: criterion"], check=True)
-    out = "Tests pass."
+    out = "Done.\\nTESTS: PASS"
 elif "Write the commit message" in prompt:
     out = '\`\`\`json\\n{"message": "[FIX] sale_custom: ignore cancelled moves when invoicing\\\\n\\\\nPRD: SP-001", "pr_title": "[FIX] sale_custom: ignore cancelled moves", "pr_body": "PRD: SP-001"}\\n\`\`\`'
 else:

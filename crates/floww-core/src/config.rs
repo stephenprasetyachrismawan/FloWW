@@ -34,7 +34,7 @@ pub enum CommitFormat {
 #[serde(default)]
 pub struct StepSettings {
     pub skills: Vec<String>,
-    pub max_iterations: u32,
+    /// Time limit for one AI session in this step.
     pub max_minutes: u32,
     /// Context pack budget in tokens for this step.
     pub context_tokens: u32,
@@ -54,7 +54,6 @@ impl Default for StepSettings {
     fn default() -> Self {
         Self {
             skills: Vec::new(),
-            max_iterations: 5,
             max_minutes: 30,
             context_tokens: 6_000,
         }
@@ -76,7 +75,11 @@ impl Default for Steps {
     fn default() -> Self {
         Self {
             prd: StepSettings::with(&["grill-me"], 6_000),
-            develop: StepSettings::with(&["tdd", "sdd"], 10_000),
+            // One session builds the whole PRD, so it gets more time.
+            develop: StepSettings {
+                max_minutes: 60,
+                ..StepSettings::with(&["tdd", "sdd"], 10_000)
+            },
             test: StepSettings::with(&[], 6_000),
             commit: StepSettings::with(&[], 3_000),
             brain: StepSettings::with(&[], 3_000),
@@ -173,7 +176,6 @@ pub struct TeamOverrides {
     pub base_branch: Option<String>,
     pub language: Option<String>,
     pub full_suite: Option<bool>,
-    pub develop_max_iterations: Option<u32>,
 }
 
 /// App-wide settings, stored in `~/.config/floww/app.toml`.
@@ -211,9 +213,6 @@ impl EffectiveConfig {
         }
         if let Some(v) = o.full_suite {
             team.steps.full_suite = v;
-        }
-        if let Some(v) = o.develop_max_iterations {
-            team.steps.develop.max_iterations = v;
         }
         Self { team, workspace }
     }
@@ -300,14 +299,12 @@ mod tests {
         let workspace = WorkspaceConfig {
             overrides: TeamOverrides {
                 base_branch: Some("staging".into()),
-                develop_max_iterations: Some(8),
                 ..Default::default()
             },
             ..Default::default()
         };
         let cfg = EffectiveConfig::merge(team, workspace);
         assert_eq!(cfg.team.base_branch, "staging");
-        assert_eq!(cfg.team.steps.develop.max_iterations, 8);
         assert_eq!(cfg.team.language, "id");
     }
 

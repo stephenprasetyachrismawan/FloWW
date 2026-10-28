@@ -127,7 +127,6 @@ pub struct Settings {
     pub base_branch: Option<String>,
     pub feature_branch: Option<String>,
     pub language: Option<String>,
-    pub max_iterations: Option<u32>,
     pub full_suite: Option<bool>,
     // This computer
     pub db: Option<String>,
@@ -620,13 +619,6 @@ impl Engine {
         if let Some(v) = s.language.filter(|v| *v != team.language) {
             team.language = v;
             team_changed.push("AI language");
-        }
-        if let Some(v) = s
-            .max_iterations
-            .filter(|v| *v != team.steps.develop.max_iterations)
-        {
-            team.steps.develop.max_iterations = v;
-            team_changed.push("AI tries");
         }
         if let Some(v) = s.full_suite.filter(|v| *v != team.steps.full_suite) {
             team.steps.full_suite = v;
@@ -1666,7 +1658,6 @@ impl Engine {
                 Some(format!("git switch -c {b}")),
             );
             p.working(Step::Develop, "Starting to build");
-            p.iteration = 0;
         })
         .await
     }
@@ -1733,173 +1724,122 @@ impl Engine {
         )))
     }
 
-    async fn develop_once(
-        &self,
-        ws: &Arc<Workspace>,
-        prd: &Prd,
-        row: usize,
-        criterion: &Criterion,
-        extra: &str,
-    ) -> R<()> {
+    /// Build the PRD in one Claude Code session. A hint or test feedback
+    /// continues that same session. No automatic retries.
+    async fn step_develop(&self, ws: &Arc<Workspace>, prd: &Prd) -> R<()> {
         let cfg = ws.cfg.read().await.clone();
-        let (rules, decisions, facts, gaps) = self.pack_lists(ws, prd, true).await;
-        let pack = prompts::Pack {
-            language: &cfg.team.language,
-            skills: &cfg.team.steps.develop.skills,
-            rules: &rules,
-            decisions: &decisions,
-            facts: &facts,
-            gaps: &gaps,
-            budget_tokens: cfg.team.steps.develop.context_tokens as usize,
-        };
         let test_cmd = self
             .test_command(ws, prd, &prd.modules)
             .await
             .map(|t| t.2)
             .unwrap_or_else(|| "the module tests".into());
+        let follow_up = !prd.feedback.is_empty() && prd.develop_session.is_some();
+        let prompt = if follow_up {
+            prompts::develop_follow_up(prd, &prd.feedback, &test_cmd)
+        } else {
+            let (rules, decisions, facts, gaps) = self.pack_lists(ws, prd, true).await;
+            let pack = prompts::Pack {
+                language: &cfg.team.language,
+                skills: &cfg.team.steps.develop.skills,
+                rules: &rules,
+                decisions: &decisions,
+                facts: &facts,
+                gaps: &gaps,
+                budget_tokens: cfg.team.steps.develop.context_tokens as usize,
+            };
+            let mut p = prompts::develop(prd, &pack, &test_cmd);
+            if !prd.feedback.is_empty() {
+                p.push_str("\n\nAlso handle these notes:\n");
+                for n in &prd.feedback {
+                    p.push_str(&format!("- {n}\n"));
+                }
+            }
+            p
+        };
+        self.update(ws, &prd.id, |p| {
+            if follow_up {
+                p.working(Step::Develop, "Working on your notes");
+                p.log(
+                    EntryState::Run,
+                    "Continuing the build session with your notes",
+                    None,
+                );
+            } else {
+                p.working(Step::Develop, "Building with tests first");
+                p.log(
+                    EntryState::Run,
+                    "Claude Code builds the PRD, test first",
+                    None,
+                );
+            }
+        })
+        .await?;
         let req = Request {
-            prompt: prompts::develop(prd, &pack, row, criterion, &test_cmd, extra),
+            prompt,
             cwd: prd.worktree.clone().ok_or("the PRD has no worktree")?,
             model: self.model_for(ws, ModelStep::Develop).await,
             bypass_permissions: true,
+            resume_session: if follow_up {
+                prd.develop_session.clone()
+            } else {
+                None
+            },
             ..Default::default()
         };
-        self.ai(ws, &prd.id, req, cfg.team.steps.develop.max_minutes)
+        let run = self
+            .ai(ws, &prd.id, req, cfg.team.steps.develop.max_minutes)
             .await?;
-        Ok(())
-    }
 
-    async fn step_develop(&self, ws: &Arc<Workspace>, prd: &Prd) -> R<()> {
-        let max = ws.cfg.read().await.team.steps.develop.max_iterations.max(1);
-        // Feedback from human testing comes first, as its own short session.
-        if !prd.feedback.is_empty() {
-            let fb = prd.feedback.join("\n- ");
-            let c = Criterion {
-                given: "A person tested this branch in Odoo".into(),
-                when: "they checked the test cases".into(),
-                then: format!("fix what they reported:\n- {fb}"),
-                done: false,
-            };
-            self.update(ws, &prd.id, |p| {
-                p.working(
-                    Step::Develop,
-                    format!("Fixing feedback round {}", p.feedback_rounds),
-                );
-                p.log(EntryState::Run, "Writing a test for what you found", None);
-            })
-            .await?;
-            let now = self.get_prd(&ws.id, &prd.id).await?;
-            self.develop_once(
-                ws,
-                &now,
-                now.criteria.len(),
-                &c,
-                "\nThis is feedback from human testing. Add a test that reproduces it.\n",
-            )
-            .await?;
-            self.update(ws, &prd.id, |p| {
-                p.feedback.clear();
-                p.log(EntryState::Done, "Worked on your feedback", None);
-            })
-            .await?;
-        }
-        loop {
-            let now = self.get_prd(&ws.id, &prd.id).await?;
-            let Some(row) = now.criteria.iter().position(|c| !c.done) else {
-                break;
-            };
-            let c = now.criteria[row].clone();
-            let total = now.criteria.len();
-            let attempt = now.iteration + 1;
-            if attempt > max {
-                return self
-                    .update(ws, &prd.id, |p| {
-                        p.needs(Step::Develop, "Help the AI", format!("Criterion {} still fails after {max} tries", row + 1));
-                        p.log(EntryState::Fail, format!("Stopped after {max} tries on criterion {}. Give a hint or edit the PRD, then continue.", row + 1), None);
-                    })
-                    .await;
-            }
-            self.update(ws, &prd.id, |p| {
-                p.working(
-                    Step::Develop,
-                    format!("Criterion {} of {total}, try {attempt} of {max}", row + 1),
-                );
-                p.log(
-                    EntryState::Run,
-                    format!("New session for criterion {}: {}", row + 1, c.then),
-                    None,
-                );
-            })
-            .await?;
-            let extra = if now.iteration > 0 {
-                now.timeline
-                    .iter()
-                    .rev()
-                    .find(|e| e.state == EntryState::Fail)
-                    .and_then(|e| e.cmd.clone())
-                    .map(|t| format!("\nThe last try failed with:\n```\n{t}\n```\n"))
-                    .unwrap_or_default()
-            } else {
-                String::new()
-            };
-            self.develop_once(ws, &now, row, &c, &extra).await?;
-            // Modules may change while building.
-            let wt = now.worktree.clone().ok_or("the PRD has no worktree")?;
-            let base = now.base_commit.clone().unwrap_or_else(|| "HEAD".into());
-            let files: Vec<PathBuf> = git::changed_files(&wt, &base)
-                .await
-                .into_iter()
-                .map(PathBuf::from)
-                .collect();
-            let touched = odoo::modules_touched(&wt, &files);
-            if !touched.is_empty() {
-                self.update(ws, &prd.id, |p| {
-                    for m in &touched {
-                        if !p.modules.contains(m) {
-                            p.modules.push(m.clone());
-                        }
-                    }
-                    if p.module.is_none() {
-                        p.module = p.modules.first().cloned();
-                    }
-                })
-                .await?;
-            }
-            let now = self.get_prd(&ws.id, &prd.id).await?;
-            match self.run_tests(ws, &now, &now.modules).await? {
-                Some((true, _)) | None => {
-                    self.update(ws, &prd.id, |p| {
-                        p.criteria[row].done = true;
-                        p.iteration = 0;
-                        p.log(
-                            EntryState::Done,
-                            format!("Criterion {} passes", row + 1),
-                            None,
-                        );
-                    })
-                    .await?;
-                }
-                Some((false, tail)) => {
-                    self.update(ws, &prd.id, |p| {
-                        p.iteration += 1;
-                        p.log(
-                            EntryState::Fail,
-                            format!("Tests still fail for criterion {}", row + 1),
-                            Some(tail),
-                        );
-                    })
-                    .await?;
-                }
-            }
-        }
-        let full = ws.cfg.read().await.team.steps.full_suite;
+        // Modules the session touched.
+        let wt = prd.worktree.clone().ok_or("the PRD has no worktree")?;
+        let base = prd.base_commit.clone().unwrap_or_else(|| "HEAD".into());
+        let files: Vec<PathBuf> = git::changed_files(&wt, &base)
+            .await
+            .into_iter()
+            .map(PathBuf::from)
+            .collect();
+        let touched = odoo::modules_touched(&wt, &files);
+        let outcome = prompts::tests_line(&run.text);
+        let full = cfg.team.steps.full_suite;
         self.update(ws, &prd.id, |p| {
-            p.step = if full {
-                Step::FullSuite
-            } else {
-                Step::LogChanges
-            };
-            p.sub = "Built".into();
+            if run.session_id.is_some() {
+                p.develop_session = run.session_id.clone();
+            }
+            p.feedback.clear();
+            for m in &touched {
+                if !p.modules.contains(m) {
+                    p.modules.push(m.clone());
+                }
+            }
+            if p.module.is_none() {
+                p.module = p.modules.first().cloned();
+            }
+            match &outcome {
+                prompts::TestsLine::Pass => {
+                    for c in &mut p.criteria {
+                        c.done = true;
+                    }
+                    p.log(EntryState::Done, "Built, module tests pass", None);
+                    p.step = if full { Step::FullSuite } else { Step::LogChanges };
+                    p.sub = "Built".into();
+                }
+                prompts::TestsLine::Fail(why) => {
+                    p.needs(Step::Develop, "Help the AI", "The tests still fail");
+                    p.log(
+                        EntryState::Fail,
+                        "Tests still fail. Give a hint and continue, or edit the PRD.",
+                        Some(why.clone()),
+                    );
+                }
+                prompts::TestsLine::Missing => {
+                    p.needs(Step::Develop, "Help the AI", "The AI did not say whether the tests pass");
+                    p.log(
+                        EntryState::Fail,
+                        "The session ended without a test result. Check the diff, then give a hint and continue.",
+                        Some(run.text.lines().rev().take(8).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n")),
+                    );
+                }
+            }
         })
         .await
     }
@@ -2518,13 +2458,10 @@ impl Engine {
         Ok(())
     }
 
-    /// Continue after a pause, an error, or the loop limit.
+    /// Continue after a pause, an error, or failing tests.
     pub async fn resume(&self, wid: &str, id: &str) -> R<()> {
         let ws = self.ws(wid).await?;
         self.update(&ws, id, |p| {
-            if p.step == Step::Develop {
-                p.iteration = 0;
-            }
             // Human steps go back to waiting; others run again.
             let human = matches!(
                 p.step,

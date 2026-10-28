@@ -16,25 +16,25 @@ Download from [Releases](https://github.com/stephenprasetyachrismawan/FloWW/rele
 **Desktop app, .deb (Ubuntu/Debian)**
 
 ```sh
-curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.3/FloWW_0.1.3_amd64.deb
-sudo apt install ./FloWW_0.1.3_amd64.deb
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.4/FloWW_0.1.4_amd64.deb
+sudo apt install ./FloWW_0.1.4_amd64.deb
 floww                               # or open "FloWW" from the app menu
 ```
 
 **Desktop app, AppImage (any distro)**
 
 ```sh
-curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.3/FloWW_0.1.3_amd64.AppImage
-chmod +x FloWW_0.1.3_amd64.AppImage
-./FloWW_0.1.3_amd64.AppImage        # needs libfuse2 (libfuse2t64 on Ubuntu 24.04)
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.4/FloWW_0.1.4_amd64.AppImage
+chmod +x FloWW_0.1.4_amd64.AppImage
+./FloWW_0.1.4_amd64.AppImage        # needs libfuse2 (libfuse2t64 on Ubuntu 24.04)
 ```
 
 **Web UI in your browser (floww-web)**
 
 ```sh
-curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.3/floww-web-v0.1.3-linux-x86_64.tar.gz
-tar xzf floww-web-v0.1.3-linux-x86_64.tar.gz
-install -Dm755 floww-web-v0.1.3-linux-x86_64/floww-web ~/.local/bin/floww-web
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.4/floww-web-v0.1.4-linux-x86_64.tar.gz
+tar xzf floww-web-v0.1.4-linux-x86_64.tar.gz
+install -Dm755 floww-web-v0.1.4-linux-x86_64/floww-web ~/.local/bin/floww-web
 floww-web --open                    # default port 7171
 ```
 
@@ -111,9 +111,10 @@ too.
    the base branch in a separate worktree.
 2. **Grill-me** → one question at a time with a suggested answer; answers go to the brain.
 3. **PRD** → written by the AI, shown as HTML (copy HTML/Markdown), approved by you.
-4. **Building** → a branch from the development branch, named by your template
-   (default `dev/{ddmmyyyy}_{slug}`, e.g. `dev/28102026_invoice-dobel-saat`; set both in Settings), one fresh Claude Code session per acceptance
-   criterion (test first), module tests after each, stop and ask after the loop limit.
+4. **Building** → a branch from the development branch, named by your template (default
+   `dev/{ddmmyyyy}_{slug}`, e.g. `dev/28102026_invoice-dobel-saat`; both set in Settings), then one
+   Claude Code session builds the whole PRD: the PRD is the spec, tests come first, and it runs the
+   module tests itself. If tests still fail it asks you; your hint continues the same session.
 5. **Testing** → FloWW upgrades the modules and starts Odoo (one request at a time on the shared
    database); you mark each case Works/Broken; feedback goes back to step 4.
 6. **Ship** → AI-drafted commit message you can edit, one squashed commit, push, optional PR.

@@ -22,7 +22,7 @@ dengan **Obsidian sebagai brain per workspace**. Odoo jadi preset pertama; arsit
 | Model | **Model default global** + **override per step** di settings workspace. Daftar model: auto-fetch dari 9router (kalau tersedia) / alias Claude Code, plus input bebas. Dikirim via `--model` |
 | Izin AI saat develop | **Bebas di dalam worktree** (`bypassPermissions`) |
 | Izin AI saat setup workspace | **Bebas penuh** (boleh buat venv, pip install, createdb, launch.json, branch preprod, install graphify) |
-| Loop TDD | Maks **5 iterasi atau 30 menit** per step (bisa diatur), lalu berhenti dan eskalasi ke user |
+| Develop | **Satu sesi Claude Code** per PRD: PRD = spec (SDD), test dulu (TDD), AI menjalankan test modul sendiri. Tanpa loop per criterion dan tanpa retry otomatis. Kalau test masih gagal: "Help the AI", hint melanjutkan sesi yang sama. Batas waktu 60 menit |
 | Biaya | Tampilkan token/biaya dari `stream-json` per step & per PRD. Mode subscription: token saja |
 | Secret | **OS keyring** (crate `keyring`). Config hanya simpan referensi `keyring:<nama>` |
 
@@ -31,7 +31,7 @@ dengan **Obsidian sebagai brain per workspace**. Odoo jadi preset pertama; arsit
 | Topik | Keputusan |
 |---|---|
 | Workspace | **1 workspace = 1 folder repo**. Kanban, config, DB, brain semuanya per workspace |
-| Config | **Dua lapis.** `brain/_floww/team.toml` = aturan kerja tim (shared via `floww/brain`): preset, base branch, pola branch, format commit, skill per step, batas loop, template PRD, bahasa AI. `.floww/workspace.toml` = per orang (gitignored): DB lokal, port, venv, launch config, auth & model AI. Lokal boleh override team |
+| Config | **Dua lapis.** `brain/_floww/team.toml` = aturan kerja tim (shared via `floww/brain`): preset, base branch, pola branch, format commit, skill per step, template PRD, bahasa AI. `.floww/workspace.toml` = per orang (gitignored): DB lokal, port, venv, launch config, auth & model AI. Lokal boleh override team |
 | Edit rules | **Semua anggota boleh ubah, dengan jejak**: tiap perubahan rule = commit sendiri di `floww/brain` (author + alasan), tampil di Team activity. Perubahan rule oleh AI selalu minta konfirmasi manusia |
 | Brain | **Orphan branch `floww/brain`**, worktree di `.floww/brain/`. Semua anggota auto commit + push. Note agregat di-regenerate saat konflik; konflik di note manual → tampilkan diff, user pilih |
 | Git host | **GitHub** (trait `GitHost`) |
@@ -167,8 +167,7 @@ skills = ["grill-me"]
 template = "_floww/templates/prd.md"
 [steps.develop]
 skills = ["tdd", "sdd"]
-max_iterations = 5
-max_minutes = 30
+max_minutes = 60
 [steps.test]
 full_suite = false
 ```
