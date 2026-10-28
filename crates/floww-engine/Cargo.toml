@@ -14,7 +14,7 @@ thiserror.workspace = true
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-util", "sync", "time", "fs"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "std"] }
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "rustls-tls-native-roots"] }
 rand = "0.9"
 tracing = "0.1"
 sha2 = "0.10"

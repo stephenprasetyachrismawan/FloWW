@@ -104,7 +104,7 @@ impl Default for TeamConfig {
             preset: Preset::Odoo,
             language: "id".into(),
             base_branch: "preprod".into(),
-            feature_branch: "feature/{prd_id}-{slug}".into(),
+            feature_branch: crate::branch::DEFAULT_TEMPLATE.into(),
             commit_format: CommitFormat::Odoo,
             steps: Steps::default(),
         }

@@ -4,6 +4,7 @@
 //! The desktop app (`src-tauri`) is a thin layer that exposes these
 //! functions as commands.
 
+pub mod branch;
 pub mod claude;
 pub mod config;
 pub mod error;

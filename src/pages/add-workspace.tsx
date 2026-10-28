@@ -1,6 +1,7 @@
 import { Check, FolderOpen, LoaderCircle, X } from "lucide-react";
 import { useState } from "react";
 
+import { BranchTemplateField, DEFAULT_BRANCH_TEMPLATE } from "@/components/branch-template";
 import { FolderBrowser } from "@/components/folder-browser";
 import { Button } from "@/components/ui/button";
 import { Field, Input, OptionList } from "@/components/ui/field";
@@ -21,7 +22,8 @@ export function AddWorkspace({ onClose }: { onClose: () => void }) {
   const [browsing, setBrowsing] = useState(false);
   const [browsePath, setBrowsePath] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [form, setForm] = useState({ name: "", initials: "", db: "", base_branch: "preprod", launch_config: "", http_port: 8069, language: "id" });
+  const [form, setForm] = useState({ name: "", initials: "", db: "", base_branch: "preprod", branch_template: DEFAULT_BRANCH_TEMPLATE, launch_config: "", http_port: 8069, language: "id" });
+  const [templateOk, setTemplateOk] = useState(true);
 
   async function look(target = path) {
     setPath(target);
@@ -37,6 +39,7 @@ export function AddWorkspace({ onClose }: { onClose: () => void }) {
         initials: d.initials,
         db: d.suggested.db,
         base_branch: d.suggested.base_branch,
+        branch_template: DEFAULT_BRANCH_TEMPLATE,
         launch_config: d.suggested.launch_config ?? "",
         http_port: d.suggested.http_port,
         language: "id",
@@ -74,6 +77,7 @@ export function AddWorkspace({ onClose }: { onClose: () => void }) {
         initials: form.initials,
         db: form.db,
         base_branch: form.base_branch,
+        branch_template: form.branch_template,
         launch_config: form.launch_config || null,
         http_port: Number(form.http_port) || 8069,
         language: form.language,
@@ -129,7 +133,7 @@ export function AddWorkspace({ onClose }: { onClose: () => void }) {
               Back
             </Button>
             <span className="flex-1" />
-            <Button variant="primary" onClick={create} disabled={busy || !det?.is_git || !form.initials}>
+            <Button variant="primary" onClick={create} disabled={busy || !det?.is_git || !form.initials || !form.base_branch.trim() || !templateOk}>
               {busy ? "Setting up…" : "Create workspace"}
             </Button>
           </>
@@ -202,9 +206,18 @@ export function AddWorkspace({ onClose }: { onClose: () => void }) {
             <Field label="Your initials" htmlFor="f-ini" hint={`PRD ids look like ${form.initials || "XX"}-001`}>
               <Input id="f-ini" value={form.initials} maxLength={4} onChange={(e) => setForm({ ...form, initials: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") })} />
             </Field>
-            <Field label="New work starts from" htmlFor="f-base" hint={det.has_preprod ? "Found in the repo." : `Will be created from ${det.default_branch ?? "the default branch"}.`}>
+            <Field
+              label="Development branch"
+              htmlFor="f-base"
+              hint={
+                det.branches.includes(form.base_branch.trim())
+                  ? "New branches start here and pull requests go here. Found in the repo."
+                  : `New branches start here and pull requests go here. Will be created from ${det.default_branch ?? "the default branch"}.`
+              }
+            >
               <Input id="f-base" value={form.base_branch} onChange={(e) => setForm({ ...form, base_branch: e.target.value })} />
             </Field>
+            <BranchTemplateField id="f-template" value={form.branch_template} onChange={(v) => setForm({ ...form, branch_template: v })} initials={form.initials} onValid={setTemplateOk} />
             <div className="flex flex-col gap-1.5">
               <span className="text-[13.5px] font-semibold text-ink">Local database</span>
               <Select value={form.db || undefined} onValueChange={(v) => setForm({ ...form, db: v })}>

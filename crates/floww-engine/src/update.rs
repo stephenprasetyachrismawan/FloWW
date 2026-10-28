@@ -225,6 +225,18 @@ struct GhAsset {
     size: u64,
 }
 
+/// An error with its causes, e.g. "error sending request: invalid peer certificate: UnknownIssuer".
+fn why(e: &dyn std::error::Error) -> String {
+    let mut s = e.to_string();
+    let mut src = e.source();
+    while let Some(c) = src {
+        s.push_str(": ");
+        s.push_str(&c.to_string());
+        src = c.source();
+    }
+    s
+}
+
 fn client(timeout: Option<Duration>) -> Result<reqwest::Client, String> {
     let mut b = reqwest::Client::builder()
         .user_agent(concat!("FloWW/", env!("CARGO_PKG_VERSION")))
@@ -251,7 +263,10 @@ pub async fn check(install: &Install) -> Result<Check, String> {
         .send()
         .await
         .map_err(|e| {
-            format!("Could not reach GitHub to check for updates ({e}). Check your internet connection and try again.")
+            format!(
+                "Could not reach GitHub to check for updates ({}). Check your internet connection and try again.",
+                why(&e)
+            )
         })?;
     if res.status() == reqwest::StatusCode::NOT_FOUND {
         return Err("No FloWW release is published yet.".into());
@@ -396,7 +411,7 @@ async fn download(
         .get(url)
         .send()
         .await
-        .map_err(|e| fail(e.to_string()))?;
+        .map_err(|e| fail(why(&e)))?;
     if !res.status().is_success() {
         return Err(fail(format!("server answered {}", res.status())));
     }
@@ -405,7 +420,7 @@ async fn download(
     let mut hasher = Sha256::new();
     let mut got: u64 = 0;
     let mut last = u8::MAX;
-    while let Some(chunk) = res.chunk().await.map_err(|e| fail(e.to_string()))? {
+    while let Some(chunk) = res.chunk().await.map_err(|e| fail(why(&e)))? {
         file.write_all(&chunk).map_err(|e| fail(e.to_string()))?;
         hasher.update(&chunk);
         got += chunk.len() as u64;
@@ -478,7 +493,7 @@ pub async fn apply(
         .send()
         .await
         .and_then(|r| r.error_for_status())
-        .map_err(|e| format!("Could not download {SUMS}: {e}"))?
+        .map_err(|e| format!("Could not download {SUMS}: {}", why(&e)))?
         .text()
         .await
         .map_err(|e| format!("Could not read {SUMS}: {e}"))?;

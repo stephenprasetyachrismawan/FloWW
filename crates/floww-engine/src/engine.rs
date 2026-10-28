@@ -106,6 +106,9 @@ pub struct AddWorkspace {
     pub http_port: u16,
     #[serde(default)]
     pub language: Option<String>,
+    /// Template for new development branch names, e.g. `dev/{ddmmyyyy}_{slug}`.
+    #[serde(default)]
+    pub branch_template: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -122,6 +125,7 @@ pub struct SetAi {
 pub struct Settings {
     // Team (shared through the brain)
     pub base_branch: Option<String>,
+    pub feature_branch: Option<String>,
     pub language: Option<String>,
     pub max_iterations: Option<u32>,
     pub full_suite: Option<bool>,
@@ -136,6 +140,24 @@ pub struct Settings {
 
 /// A path inside the brain: relative, no `..`, no NUL. Absolute paths would
 /// escape the vault because `Path::join` replaces the base with them.
+/// Development branch name for a PRD from the team's template.
+pub fn branch_name(template: &str, prd: &Prd) -> String {
+    use chrono::Datelike;
+    let day = prd.created_at.with_timezone(&chrono::Local).date_naive();
+    let slug = prd.slug();
+    floww_core::branch::render(
+        template,
+        &floww_core::branch::BranchInput {
+            prd_id: &prd.id,
+            slug: if slug.is_empty() { "request" } else { &slug },
+            kind: prd.kind.branch_word(),
+            year: day.year(),
+            month: day.month(),
+            day: day.day(),
+        },
+    )
+}
+
 pub fn safe_rel(p: &str) -> bool {
     let path = std::path::Path::new(p);
     !p.contains('\0')
@@ -458,8 +480,19 @@ impl Engine {
         std::fs::create_dir_all(paths.floww()).map_err(|e| e.to_string())?;
         git::exclude(&repo, &[".floww/"]).await?;
 
-        // Base branch: create it from the default branch when missing.
+        let template = req
+            .branch_template
+            .as_deref()
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+            .unwrap_or(floww_core::branch::DEFAULT_TEMPLATE)
+            .to_string();
+        floww_core::branch::validate(&template)?;
+        // Development branch: create it from the default branch when missing.
         let base = req.base_branch.trim().to_string();
+        if base.is_empty() {
+            return Err("Set the development branch, for example preprod or development.".into());
+        }
         if !git::local_branch_exists(&repo, &base).await
             && !git::remote_branch_exists(&repo, &base).await
         {
@@ -477,6 +510,7 @@ impl Engine {
         if !team_path.exists() {
             let team = TeamConfig {
                 base_branch: base.clone(),
+                feature_branch: template.clone(),
                 language: req.language.clone().unwrap_or_else(|| "id".into()),
                 ..TeamConfig::default()
             };
@@ -561,9 +595,27 @@ impl Engine {
         let mut local: WorkspaceConfig =
             config::read_toml_or_default(&local_path).map_err(|e| e.to_string())?;
         let mut team_changed = Vec::new();
-        if let Some(v) = s.base_branch.filter(|v| *v != team.base_branch) {
+        if let Some(v) = s
+            .base_branch
+            .map(|v| v.trim().to_string())
+            .filter(|v| *v != team.base_branch)
+        {
+            if v.is_empty() {
+                return Err(
+                    "Set the development branch, for example preprod or development.".into(),
+                );
+            }
             team.base_branch = v;
-            team_changed.push("base branch");
+            team_changed.push("development branch");
+        }
+        if let Some(v) = s
+            .feature_branch
+            .map(|v| v.trim().to_string())
+            .filter(|v| *v != team.feature_branch)
+        {
+            floww_core::branch::validate(&v)?;
+            team.feature_branch = v;
+            team_changed.push("branch name");
         }
         if let Some(v) = s.language.filter(|v| *v != team.language) {
             team.language = v;
@@ -1553,11 +1605,11 @@ impl Engine {
     async fn step_create_branch(&self, ws: &Arc<Workspace>, prd: &Prd) -> R<()> {
         let wt = self.ensure_worktree(ws, prd).await?;
         let cfg = ws.cfg.read().await.clone();
-        let branch = cfg
-            .team
-            .feature_branch
-            .replace("{prd_id}", &prd.id)
-            .replace("{slug}", &prd.slug());
+        // Keep the name once chosen, so a later run on another day finds it.
+        let branch = match prd.branch.clone().filter(|b| !b.is_empty()) {
+            Some(b) => b,
+            None => branch_name(&cfg.team.feature_branch, prd),
+        };
         let current = git::git_quick(&wt, &["branch", "--show-current"])
             .await
             .unwrap_or_default();

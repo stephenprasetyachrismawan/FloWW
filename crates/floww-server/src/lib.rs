@@ -247,6 +247,46 @@ async fn folders(Query(q): Query<FsQ>) -> Api {
     ok(floww_engine::folders::list(q.path.as_deref())?)
 }
 
+#[derive(Deserialize)]
+struct BranchQ {
+    template: String,
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    initials: Option<String>,
+}
+
+/// What a branch name template gives for a request made today.
+async fn branch_preview(Query(q): Query<BranchQ>) -> Api {
+    use floww_core::branch;
+    branch::validate(&q.template)?;
+    let (year, month, day) = floww_engine::model::today();
+    let title = q
+        .title
+        .unwrap_or_else(|| "Invoice dobel saat pengiriman".into());
+    let slug = floww_engine::model::slug(&title);
+    let id = format!(
+        "{}-001",
+        q.initials
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| "XX".into())
+            .trim()
+            .to_uppercase()
+    );
+    let name = branch::render(
+        &q.template,
+        &branch::BranchInput {
+            prd_id: &id,
+            slug: &slug,
+            kind: "feature",
+            year,
+            month,
+            day,
+        },
+    );
+    ok(json!({ "name": name }))
+}
+
 async fn update_check(State(st): State<AppState>) -> Api {
     let install = floww_engine::update::detect_install(st.desktop);
     ok(floww_engine::update::check(&install).await?)
@@ -554,6 +594,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/models", get(models))
         .route("/api/detect", post(detect))
         .route("/api/folders", get(folders))
+        .route("/api/branch-preview", get(branch_preview))
         .route("/api/update", get(update_check))
         .route("/api/update/apply", post(update_apply))
         .route("/api/workspaces", post(add_ws))

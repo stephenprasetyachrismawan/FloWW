@@ -15,6 +15,15 @@ pub enum PrdType {
 }
 
 impl PrdType {
+    /// Word for `{type}` in branch names.
+    pub fn branch_word(self) -> &'static str {
+        match self {
+            PrdType::Bug => "bugfix",
+            PrdType::Improve => "improvement",
+            PrdType::Feature => "feature",
+        }
+    }
+
     /// Odoo commit tag.
     pub fn commit_tag(self) -> &'static str {
         match self {
@@ -305,6 +314,13 @@ impl Prd {
     pub fn slug(&self) -> String {
         slug(&self.title)
     }
+}
+
+/// Today's local date as (year, month, day).
+pub fn today() -> (i32, u32, u32) {
+    use chrono::Datelike;
+    let d = chrono::Local::now().date_naive();
+    (d.year(), d.month(), d.day())
 }
 
 /// First three words, lowercase, dash separated.

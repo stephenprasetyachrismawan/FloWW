@@ -159,7 +159,7 @@ language = "id"
 
 [git]
 base_branch = "preprod"
-feature_branch = "feature/{prd_id}-{slug}"
+feature_branch = "dev/{ddmmyyyy}_{slug}"   # tokens: {slug} {type} {prd_id} {ddmmyyyy} {yyyymmdd} {dd} {mm} {yyyy}
 commit_format = "odoo"
 
 [steps.prd]

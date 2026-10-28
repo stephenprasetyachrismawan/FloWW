@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { BranchTemplateField, DEFAULT_BRANCH_TEMPLATE } from "@/components/branch-template";
 import { Page, PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
@@ -15,6 +16,7 @@ export function SettingsPage() {
   const [models, setModels] = useState<string[]>(Object.keys(NOTES));
   const [f, setF] = useState<Record<string, string | number | boolean>>({});
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [templateOk, setTemplateOk] = useState(true);
 
   useEffect(() => {
     void api.models().then(setModels).catch(() => undefined);
@@ -24,6 +26,7 @@ export function SettingsPage() {
     const c = workspace.config;
     setF({
       base_branch: c.team.base_branch,
+      feature_branch: c.team.feature_branch || DEFAULT_BRANCH_TEMPLATE,
       language: c.team.language,
       max_iterations: String(c.team.steps.develop.max_iterations),
       full_suite: c.team.steps.full_suite,
@@ -44,6 +47,7 @@ export function SettingsPage() {
       () =>
         api.saveSettings(wsId, {
           base_branch: f.base_branch,
+          feature_branch: f.feature_branch,
           language: f.language,
           max_iterations: Number(f.max_iterations),
           full_suite: f.full_suite,
@@ -74,9 +78,10 @@ export function SettingsPage() {
           <p className="text-[13.5px] text-muted">Saved in the shared brain. Changes are recorded with your name.</p>
         </div>
         <div className="grid grid-cols-2 gap-4.5 max-md:grid-cols-1">
-          <Field label="New work starts from" htmlFor="s-base">
+          <Field label="Development branch" htmlFor="s-base" hint="New branches start here and pull requests go here.">
             <Input id="s-base" value={String(f.base_branch ?? "")} onChange={(e) => set("base_branch")(e.target.value)} />
           </Field>
+          <BranchTemplateField id="s-template" value={String(f.feature_branch ?? "")} onChange={set("feature_branch")} initials={workspace.config.workspace.initials} onValid={setTemplateOk} />
           <div className="flex flex-col gap-1.5">
             <span className="text-[13.5px] font-semibold text-ink">AI writes in</span>
             <Select value={String(f.language ?? "id")} onValueChange={set("language")}>
@@ -167,7 +172,7 @@ export function SettingsPage() {
       </section>
 
       <div className="flex flex-wrap items-center gap-4.5">
-        <Button variant="primary" disabled={busy} onClick={save}>
+        <Button variant="primary" disabled={busy || !templateOk} onClick={save}>
           Save settings
         </Button>
         <span className="flex-1" />

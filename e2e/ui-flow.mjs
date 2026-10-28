@@ -136,6 +136,13 @@ try {
   await shot("workspace-picker");
   await row.getByRole("button", { name: "Choose" }).click();
   await page.getByText("Look right?").waitFor(T);
+  // Development branch and branch names, with a live example.
+  await page.getByLabel("Development branch").waitFor(T);
+  await page.getByText(/A request today becomes dev\/\d{8}_invoice-dobel-saat/).waitFor(T);
+  await page.getByLabel("New branch names").fill("dev/{date}");
+  await page.getByText("{date} is not a known token").waitFor(T);
+  await page.getByRole("button", { name: /Reset to/ }).click();
+  await page.getByText(/A request today becomes dev\//).waitFor(T);
   await shot("workspace-review");
   await page.getByRole("button", { name: "Create workspace" }).click();
   await page.getByText("No requests yet").waitFor(T);
@@ -187,8 +194,8 @@ try {
   await page.getByText(`You have the latest version (${version}).`).waitFor(T);
   await shot("update-latest");
 
-  const branches = execFileSync("git", ["branch", "--list", "feature/*"], { cwd: remote }).toString();
-  if (!branches.includes("feature/SP-001")) throw new Error("branch was not pushed: " + branches);
+  const branches = execFileSync("git", ["branch", "--list", "dev/*"], { cwd: remote }).toString();
+  if (!/dev\/\d{8}_invoice-dobel-saat/.test(branches)) throw new Error("branch was not pushed: " + branches);
   if (errors.length) throw new Error("page errors: " + errors.join("; "));
   console.log(`UI FLOW OK · screenshots in ${shots}`);
 } catch (e) {

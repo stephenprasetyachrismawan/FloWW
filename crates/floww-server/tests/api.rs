@@ -123,6 +123,32 @@ async fn set_ai_and_errors_are_json() {
     assert_eq!(v["entries"][0]["is_git"], true);
     let r = c.get(format!("{base}/api/folders")).send().await.unwrap();
     assert_eq!(r.status(), 401, "folder list needs the token");
+
+    // Branch name preview: default template, then a broken one.
+    let v: serde_json::Value = c
+        .get(format!("{base}/api/branch-preview"))
+        .query(&[("template", "dev/{ddmmyyyy}_{slug}"), ("initials", "sp")])
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let name = v["name"].as_str().unwrap();
+    assert!(
+        name.starts_with("dev/") && name.ends_with("_invoice-dobel-saat"),
+        "{name}"
+    );
+    assert_eq!(name.len(), "dev/".len() + 8 + "_invoice-dobel-saat".len());
+    let r = c
+        .get(format!("{base}/api/branch-preview"))
+        .query(&[("template", "dev/{date}")])
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 400);
 }
 
 #[tokio::test]

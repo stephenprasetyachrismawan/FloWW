@@ -79,10 +79,12 @@ export const api = {
   detect: (path: string) => call<Detection>("POST", "/detect", { path }),
   updateCheck: () => call<UpdateCheck>("GET", "/update"),
   updateApply: () => call<{ latest: string }>("POST", "/update/apply"),
+  branchPreview: (template: string, initials?: string) =>
+    call<{ name: string }>("GET", `/branch-preview?template=${enc(template)}${initials ? `&initials=${enc(initials)}` : ""}`),
   folders: (path?: string) => call<FolderListing>("GET", `/folders${path ? `?path=${enc(path)}` : ""}`),
   addWorkspace: (b: {
     path: string; name: string; initials: string; db: string; base_branch: string;
-    launch_config: string | null; http_port: number; language?: string;
+    launch_config: string | null; http_port: number; language?: string; branch_template?: string;
   }) => call<{ id: string }>("POST", "/workspaces", b),
   workspace: (ws: string) => call<WorkspaceView>("GET", `/workspaces/${ws}`),
   removeWorkspace: (ws: string) => call("DELETE", `/workspaces/${ws}`),

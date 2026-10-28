@@ -169,6 +169,7 @@ async fn prd_from_request_to_done() {
             launch_config: Some("Odoo test".into()),
             http_port: 8199,
             language: Some("en".into()),
+            branch_template: None,
         })
         .await
         .unwrap();
@@ -220,10 +221,10 @@ async fn prd_from_request_to_done() {
         p.step == Step::StartOdoo && p.status == Status::Needs
     })
     .await;
-    assert_eq!(
-        p.branch.as_deref(),
-        Some("feature/TT-001-invoice-dobel-saat")
-    );
+    // Default name: dev/ddmmyyyy_slug, dated the day the request was made.
+    let (y, m, d) = floww_engine::model::today();
+    let branch = format!("dev/{d:02}{m:02}{y:04}_invoice-dobel-saat");
+    assert_eq!(p.branch.as_deref(), Some(branch.as_str()));
     assert!(p.criteria.iter().all(|c| c.done));
     let wt = p.worktree.clone().unwrap();
     assert!(wt.join("CLAUDE.local.md").exists());
@@ -267,11 +268,7 @@ async fn prd_from_request_to_done() {
         .await
         .unwrap();
     let log = Command::new("git")
-        .args([
-            "log",
-            "--format=%s",
-            "preprod..feature/TT-001-invoice-dobel-saat",
-        ])
+        .args(["log", "--format=%s", &format!("preprod..{branch}")])
         .current_dir(&repo)
         .output()
         .unwrap();
@@ -282,11 +279,11 @@ async fn prd_from_request_to_done() {
     );
     engine.push(&ws, &id).await.unwrap();
     let remote_branches = Command::new("git")
-        .args(["branch", "--list", "feature/*"])
+        .args(["branch", "--list", "dev/*"])
         .current_dir(&remote)
         .output()
         .unwrap();
-    assert!(String::from_utf8_lossy(&remote_branches.stdout).contains("feature/TT-001"));
+    assert!(String::from_utf8_lossy(&remote_branches.stdout).contains(&branch));
     engine.skip_pr(&ws, &id).await.unwrap();
     let p = engine.get_prd(&ws, &id).await.unwrap();
     assert_eq!(p.status, Status::Done);
