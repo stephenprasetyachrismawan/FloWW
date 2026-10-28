@@ -101,7 +101,7 @@ claude -p "<prompt step>" \
 - cwd = worktree PRD (develop) atau root repo (setup).
 - Mode 9router: env `ANTHROPIC_BASE_URL=http://localhost:<port>` (tanpa `/v1`), `ANTHROPIC_AUTH_TOKEN` dari keyring.
 - Step baca saja (brain, DB, codebase, PRD) tetap dijalankan tanpa tool tulis.
-- **Guard minimal (disarankan, perlu konfirmasi):** deny-list yang selalu aktif walau bypass: `git push`, `git commit`, baca `~/.ssh`/keyring, `rm` di luar worktree. Commit & push tetap lewat tombol manusia.
+- Tanpa deny-list. Commit & push di flow tetap lewat tombol manusia.
 
 ---
 
@@ -253,7 +253,7 @@ brain/
 [ + New request ]                         [ Needs me ◻ ]   🔍
 ┌ Request ──┬ Planning ─┬ Building ─┬ Testing ──┬ Ship ─────┬ Done ───┐
 │ ┌───────┐ │ ┌───────┐ │ ┌───────┐ │           │           │ ┌─────┐ │
-│ │PRD-013│ │ │PRD-011│ │ │PRD-012│ │           │           │ │010  │ │
+│ │SP-013│ │ │SP-011│ │ │SP-012│ │           │           │ │SP010│ │
 │ └───────┘ │ └───────┘ │ └───────┘ │           │           │ └─────┘ │
 └───────────┴───────────┴───────────┴───────────┴───────────┴─────────┘
 ```
@@ -264,7 +264,7 @@ brain/
 
 ```
 ┌────────────────────────────┐
-│ PRD-012  Fix double invoice │
+│ SP-012  Fix double invoice │
 │ 🐛 bug · sale_custom        │
 │ Making tests pass ▪▪▪▫▫     │
 │ ⟳ AI working        $0.84  │
@@ -274,12 +274,12 @@ brain/
 
 ### New request (form)
 Judul · deskripsi (markdown) · tipe (bug / improvement / feature) · prioritas · pelapor · lampiran screenshot.
-Setelah submit, step 2–5 jalan otomatis. Kalau mirip PRD lama → banner "Similar to PRD-007?".
+Setelah submit, step 2–5 jalan otomatis. Kalau mirip PRD lama → banner "Similar to SP-007?".
 
 ### PRD detail (fullscreen)
 
 ```
-← Board   PRD-012 Fix double invoice                    ● Needs you
+← Board   SP-012 Fix double invoice                    ● Needs you
 ①Request ✓ ─ ②Planning ✓ ─ ③Building ● ─ ④Testing ─ ⑤Ship
 [ Now ] [ PRD ] [ Context ] [ Activity ] [ Changes ] [ Brain ] [ Cost ]
 ```
@@ -347,13 +347,11 @@ Needs you · AI gagal / batas loop · PR merged · DB lock bebas.
 
 ---
 
-## 8. Pertanyaan terbuka
+## 8. Keputusan tambahan
 
-1. Guard minimal di mode bypass (bagian 2): dipasang atau tidak?
-2. Sumber skill `grill-me`, `tdd`, `sdd`: skill yang sudah ada di `~/.claude/skills`, atau dibundel bersama FloWW?
-3. Format ID PRD: `PRD-012` berurutan per workspace (butuh counter di brain, rawan bentrok antar anggota) atau `PRD-<user>-<n>` / ULID pendek?
-
----
+1. **Tanpa guard** di mode bypass. AI bebas penuh di worktree.
+2. **Skill** `grill-me`, `tdd`, `sdd` memakai skill yang sudah ada di Claude Code (`~/.claude/skills` / project). Tidak dibundel.
+3. **ID PRD** = inisial user + nomor urut per user, mis. `SP-012`. Counter disimpan di `brain/.counters/<user>.json`, jadi antar anggota tidak pernah bentrok. Inisial diambil dari `git config user.name`, bisa diubah di settings.
 
 ## 9. Ditunda (bukan fase 1)
 
