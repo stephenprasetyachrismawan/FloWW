@@ -20,6 +20,7 @@ pub mod secrets;
 pub mod setup;
 pub mod skills;
 pub mod store;
+pub mod update;
 pub mod worktree_files;
 
 pub use engine::Engine;

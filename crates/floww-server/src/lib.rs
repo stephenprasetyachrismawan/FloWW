@@ -38,6 +38,10 @@ pub struct AppState {
     /// Origins allowed to call the API cross-origin. Only the desktop app's
     /// own webview origins; never any website.
     pub cors_origins: Vec<String>,
+    /// Running inside the desktop app (which updates itself through Tauri).
+    pub desktop: bool,
+    /// A floww-web self-update is running.
+    pub updating: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 /// Origins of the Tauri webview on Linux/macOS and Windows.
@@ -241,6 +245,58 @@ struct FsQ {
 
 async fn folders(Query(q): Query<FsQ>) -> Api {
     ok(floww_engine::folders::list(q.path.as_deref())?)
+}
+
+async fn update_check(State(st): State<AppState>) -> Api {
+    let install = floww_engine::update::detect_install(st.desktop);
+    ok(floww_engine::update::check(&install).await?)
+}
+
+/// floww-web only: download, install, then restart this process on the new version.
+async fn update_apply(State(st): State<AppState>) -> Api {
+    use floww_engine::events::Event;
+    use floww_engine::update::{self, Progress, Stage};
+    use std::sync::atomic::Ordering;
+    if st.desktop {
+        return Err("The desktop app updates through its own Update button."
+            .to_string()
+            .into());
+    }
+    if st.updating.swap(true, Ordering::SeqCst) {
+        return Err("An update is already running.".to_string().into());
+    }
+    let install = update::detect_install(false);
+    let check = match update::check(&install).await {
+        Ok(c) if c.can_apply => c,
+        Ok(c) => {
+            st.updating.store(false, Ordering::SeqCst);
+            let why = c
+                .reason
+                .unwrap_or_else(|| format!("You already have the latest version ({}).", c.current));
+            return Err(why.into());
+        }
+        Err(e) => {
+            st.updating.store(false, Ordering::SeqCst);
+            return Err(e.into());
+        }
+    };
+    let latest = check.latest.clone();
+    tokio::spawn(async move {
+        let engine = st.engine.clone();
+        let on = move |p: Progress| engine.emit(Event::Update(p));
+        let failed = match update::apply(&install, &check, &on).await {
+            Ok(exe) => {
+                // Let the "restarting" event reach the browser first.
+                tokio::time::sleep(std::time::Duration::from_millis(700)).await;
+                update::restart_self(&exe, &st.token)
+            }
+            Err(e) => e,
+        };
+        st.engine
+            .emit(Event::Update(Progress::new(Stage::Failed, failed)));
+        st.updating.store(false, Ordering::SeqCst);
+    });
+    ok(json!({ "latest": latest }))
 }
 
 async fn add_ws(State(st): State<AppState>, Json(b): Json<AddWorkspace>) -> Api {
@@ -498,6 +554,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/models", get(models))
         .route("/api/detect", post(detect))
         .route("/api/folders", get(folders))
+        .route("/api/update", get(update_check))
+        .route("/api/update/apply", post(update_apply))
         .route("/api/workspaces", post(add_ws))
         .route(w, get(get_ws).delete(del_ws))
         .route(&format!("{w}/settings"), put(settings))
@@ -546,7 +604,10 @@ pub async fn serve_with_origins(
         engine,
         token,
         port: addr.port(),
+        // Only the desktop app passes webview origins.
+        desktop: !cors_origins.is_empty(),
         cors_origins,
+        updating: Default::default(),
     });
     let handle = tokio::spawn(async move {
         if let Err(e) = axum::serve(listener, app).await {

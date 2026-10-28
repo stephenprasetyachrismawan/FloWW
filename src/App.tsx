@@ -4,6 +4,7 @@ import { HashRouter, Route, Routes } from "react-router";
 import { Sidebar, type Theme } from "@/components/sidebar";
 import { Toasts } from "@/components/toasts";
 import { Button } from "@/components/ui/button";
+import { UpdateControl } from "@/components/update";
 import { inTauri } from "@/lib/api";
 import { StoreProvider, useStore } from "@/lib/store";
 import { AddWorkspace } from "@/pages/add-workspace";
@@ -61,7 +62,15 @@ function Shell() {
     );
   }
   if (!app) return <div className="p-10 text-faint">Starting FloWW…</div>;
-  if (!app.ai_ready) return <FirstRun />;
+  if (!app.ai_ready)
+    return (
+      <>
+        <FirstRun />
+        <div className="fixed bottom-3 left-3 flex max-w-[260px] flex-col gap-0.5 text-[13px] max-md:static max-md:px-3 max-md:pb-3">
+          <UpdateControl version={app.version} />
+        </div>
+      </>
+    );
 
   return (
     <div className="flex h-full max-md:flex-col">

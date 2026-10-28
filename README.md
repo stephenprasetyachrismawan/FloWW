@@ -16,25 +16,25 @@ Download from [Releases](https://github.com/stephenprasetyachrismawan/FloWW/rele
 **Desktop app, .deb (Ubuntu/Debian)**
 
 ```sh
-curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.1/FloWW_0.1.1_amd64.deb
-sudo apt install ./FloWW_0.1.1_amd64.deb
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.2/FloWW_0.1.2_amd64.deb
+sudo apt install ./FloWW_0.1.2_amd64.deb
 floww                               # or open "FloWW" from the app menu
 ```
 
 **Desktop app, AppImage (any distro)**
 
 ```sh
-curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.1/FloWW_0.1.1_amd64.AppImage
-chmod +x FloWW_0.1.1_amd64.AppImage
-./FloWW_0.1.1_amd64.AppImage        # needs libfuse2 (libfuse2t64 on Ubuntu 24.04)
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.2/FloWW_0.1.2_amd64.AppImage
+chmod +x FloWW_0.1.2_amd64.AppImage
+./FloWW_0.1.2_amd64.AppImage        # needs libfuse2 (libfuse2t64 on Ubuntu 24.04)
 ```
 
 **Web UI in your browser (floww-web)**
 
 ```sh
-curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.1/floww-web-v0.1.1-linux-x86_64.tar.gz
-tar xzf floww-web-v0.1.1-linux-x86_64.tar.gz
-install -Dm755 floww-web-v0.1.1-linux-x86_64/floww-web ~/.local/bin/floww-web
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.2/floww-web-v0.1.2-linux-x86_64.tar.gz
+tar xzf floww-web-v0.1.2-linux-x86_64.tar.gz
+install -Dm755 floww-web-v0.1.2-linux-x86_64/floww-web ~/.local/bin/floww-web
 floww-web --open                    # default port 7171
 ```
 
@@ -51,6 +51,20 @@ is new on every start and gives full access, so keep the link private. Other opt
 - git and Python 3
 - Optional: `psql` to read the local Odoo database (read-only), `secret-tool` (libsecret-tools) to
   keep tokens in the keyring (or set `FLOWW_SECRET_<NAME>`), `gh` CLI or a GitHub token for PRs
+
+**Updating:** press **Check for updates** at the bottom of the sidebar. If a newer release exists,
+FloWW shows what changes and which old installer files it will delete, then:
+
+- desktop app: it closes, a small window shows the download and install, and the new version
+  opens (the .deb asks for your password; the AppImage replaces itself);
+- floww-web: it downloads the new version, restarts on the same port and link, and the page
+  reloads.
+
+Every download is checked against the release's `SHA256SUMS.txt` before anything is replaced.
+Your settings (`~/.config/floww`), workspaces and brain are never touched. Old FloWW release files
+(`FloWW_*.deb`, `FloWW_*.AppImage`, `floww-web-v*` tarballs and folders) older than the new version
+are removed from `~/Downloads`, `~/Unduhan` and the folder FloWW runs from. If nothing newer
+exists, it says you have the latest version.
 
 **First run:** choose your Claude login or 9router, pick a model and send a test message, then
 **Add workspace** and press **Choose folder…** to pick your repo. FloWW finds the Odoo command in `.vscode/launch.json`, the

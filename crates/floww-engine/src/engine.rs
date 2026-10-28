@@ -198,7 +198,7 @@ impl Engine {
         self.0.events.subscribe()
     }
 
-    fn emit(&self, e: Event) {
+    pub fn emit(&self, e: Event) {
         let _ = self.0.events.send(e);
     }
 

@@ -23,6 +23,8 @@ pub enum Event {
         body: String,
         kind: NotifyKind,
     },
+    /// Progress of a floww-web self-update.
+    Update(crate::update::Progress),
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]

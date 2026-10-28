@@ -5,6 +5,7 @@
 // Run: pnpm build && cargo build -p floww-server && node e2e/ui-flow.mjs
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -77,10 +78,23 @@ git(repo, "config", "user.email", "s@example.com");
 git(repo, "remote", "add", "origin", remote);
 git(repo, "push", "-q", "-u", "origin", "main");
 
+// Fake GitHub: the latest release is the version under test.
+const version = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version;
+const gh = http.createServer((req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.end(JSON.stringify({ tag_name: `v${version}`, html_url: "http://example.invalid/release", body: "", assets: [] }));
+});
+await new Promise((r) => gh.listen(0, "127.0.0.1", r));
+
 const port = 7300 + Math.floor(Math.random() * 500);
 const token = "e2e-token-" + Date.now();
 const server = spawn(path.join(root, "target/debug/floww-web"), ["--port", String(port), "--token", token], {
-  env: { ...process.env, FLOWW_HOME: path.join(tmp, "home"), FLOWW_CLAUDE_BIN: path.join(bin, "claude") },
+  env: {
+    ...process.env,
+    FLOWW_HOME: path.join(tmp, "home"),
+    FLOWW_CLAUDE_BIN: path.join(bin, "claude"),
+    FLOWW_UPDATE_API: `http://127.0.0.1:${gh.address().port}`,
+  },
   stdio: ["ignore", "pipe", "inherit"],
 });
 await new Promise((resolve, reject) => {
@@ -168,6 +182,10 @@ try {
   await page.getByRole("button", { name: "Graph" }).click();
   await page.waitForTimeout(500);
   await shot("graph");
+  // Update check: nothing newer than this version.
+  await page.getByRole("button", { name: "Check for updates" }).click();
+  await page.getByText(`You have the latest version (${version}).`).waitFor(T);
+  await shot("update-latest");
 
   const branches = execFileSync("git", ["branch", "--list", "feature/*"], { cwd: remote }).toString();
   if (!branches.includes("feature/SP-001")) throw new Error("branch was not pushed: " + branches);
@@ -180,4 +198,5 @@ try {
 } finally {
   await browser.close();
   server.kill();
+  gh.close();
 }

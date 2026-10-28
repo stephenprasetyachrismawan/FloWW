@@ -2,6 +2,7 @@ import { Database, LayoutPanelLeft, Monitor, Moon, Network, Plus, SlidersHorizon
 import { NavLink, useNavigate } from "react-router";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { UpdateControl } from "@/components/update";
 import { needsYou } from "@/lib/pipeline";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -79,7 +80,7 @@ export function Sidebar({ theme, onTheme, onAddWorkspace }: { theme: Theme; onTh
           <ThemeIcon className="size-[15px]" strokeWidth={1.8} />
           Theme: {theme}
         </button>
-        {app ? <span className="px-2.5 py-1 text-faint">FloWW {app.version}</span> : null}
+        {app ? <UpdateControl version={app.version} /> : null}
       </div>
     </aside>
   );

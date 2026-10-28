@@ -210,7 +210,29 @@ export type ServerEvent =
   | { type: "workspaces_changed" }
   | { type: "lock_changed"; workspace: string }
   | { type: "brain_changed"; workspace: string }
-  | { type: "notify"; title: string; body: string; kind: "you" | "ok" | "bad" | "info" };
+  | { type: "notify"; title: string; body: string; kind: "you" | "ok" | "bad" | "info" }
+  | ({ type: "update" } & UpdateProgress);
+
+/** Mirrors floww_engine::update::Progress. */
+export interface UpdateProgress {
+  stage: "check" | "download" | "verify" | "install" | "cleanup" | "restart" | "failed";
+  percent: number | null;
+  message: string;
+}
+
+/** Mirrors floww_engine::update::Check. */
+export interface UpdateCheck {
+  current: string;
+  latest: string;
+  newer: boolean;
+  kind: "app_image" | "deb" | "web" | "source";
+  release_url: string;
+  notes: string;
+  asset: { name: string; url: string; size: number } | null;
+  old_files: string[];
+  can_apply: boolean;
+  reason: string | null;
+}
 
 /** Mirrors floww_engine::folders::FolderEntry. */
 export interface FolderEntry {

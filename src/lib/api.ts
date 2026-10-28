@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type {
-  AppView, Detection, FolderListing, Graph, LockState, Note, Pending, Prd, PrdType, ScanReport, ServerEvent, Skill, WorkspaceView,
+  AppView, Detection, FolderListing, Graph, UpdateCheck, LockState, Note, Pending, Prd, PrdType, ScanReport, ServerEvent, Skill, WorkspaceView,
 } from "./types";
 
 /** True inside the desktop app. */
@@ -77,6 +77,8 @@ export const api = {
   testAi: (model?: string | null) => call<{ message: string }>("POST", "/ai/test", { model }),
   models: () => call<string[]>("GET", "/models"),
   detect: (path: string) => call<Detection>("POST", "/detect", { path }),
+  updateCheck: () => call<UpdateCheck>("GET", "/update"),
+  updateApply: () => call<{ latest: string }>("POST", "/update/apply"),
   folders: (path?: string) => call<FolderListing>("GET", `/folders${path ? `?path=${enc(path)}` : ""}`),
   addWorkspace: (b: {
     path: string; name: string; initials: string; db: string; base_branch: string;
@@ -136,6 +138,11 @@ export function subscribe(onEvent: (e: ServerEvent) => void, onStatus?: (connect
     clearTimeout(retry);
     es?.close();
   };
+}
+
+/** Desktop: close FloWW and let the updater window install the new version. */
+export async function startDesktopUpdate(): Promise<void> {
+  await invoke("start_update");
 }
 
 /** The system folder picker in the desktop app. Returns null when cancelled. */
