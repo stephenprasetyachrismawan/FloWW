@@ -79,6 +79,8 @@ export interface Prd {
   worktree: string | null;
   base_commit: string | null;
   develop_session: string | null;
+  chat: ChatMsg[];
+  odoo_port: number | null;
   tests: TestCase[];
   odoo: "off" | "starting" | "on";
   feedback_rounds: number;
@@ -119,6 +121,7 @@ export interface EffectiveConfig {
     initials: string;
     db: string;
     http_port: number;
+    share_database: boolean;
     launch_config: string | null;
     github_token_ref: string | null;
     ai: AiAuth | null;
@@ -207,6 +210,7 @@ export interface Graph {
 export type ServerEvent =
   | { type: "prd_changed"; workspace: string; prd: Prd }
   | { type: "workspaces_changed" }
+  | { type: "prd_deleted"; workspace: string; id: string }
   | { type: "lock_changed"; workspace: string }
   | { type: "brain_changed"; workspace: string }
   | { type: "notify"; title: string; body: string; kind: "you" | "ok" | "bad" | "info" }
@@ -248,4 +252,13 @@ export interface FolderListing {
   is_git: boolean;
   entries: FolderEntry[];
   truncated: boolean;
+}
+
+/** Mirrors floww_engine::model::ChatMsg. */
+export interface ChatMsg {
+  at: string;
+  role: "floww" | "ai" | "tool" | "you";
+  text: string;
+  tool?: string;
+  detail?: string;
 }

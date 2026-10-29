@@ -252,6 +252,146 @@ pub fn command(
     Command { program, args }
 }
 
+/// Replace `from` with `to` wherever it appears as a whole path
+/// (followed by `/`, a separator, or the end), not as part of a longer name.
+pub fn remap_path(text: &str, from: &Path, to: &Path) -> String {
+    let from = from.to_string_lossy().trim_end_matches('/').to_string();
+    let to = to.to_string_lossy().trim_end_matches('/').to_string();
+    if from.is_empty() {
+        return text.to_string();
+    }
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(i) = rest.find(&from) {
+        let after = &rest[i + from.len()..];
+        let boundary = after
+            .chars()
+            .next()
+            .map(|c| matches!(c, '/' | ',' | ';' | ':' | '"' | '\'' | ' ' | '\n' | '\t'))
+            .unwrap_or(true);
+        out.push_str(&rest[..i]);
+        out.push_str(if boundary { &to } else { &from });
+        rest = after;
+    }
+    out.push_str(rest);
+    out
+}
+
+/// A launch config made for one request's worktree.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TaskLaunch {
+    pub launch: OdooLaunch,
+    /// Odoo config file text to write at `conf_path`, when the launch uses `-c`.
+    pub conf: Option<String>,
+    /// A `.vscode/launch.json` style file, so the person can see or debug it.
+    pub launch_json: String,
+}
+
+fn split_paths(v: &str) -> Vec<String> {
+    v.split(',')
+        .map(|p| p.trim().to_string())
+        .filter(|p| !p.is_empty())
+        .collect()
+}
+
+/// Point a launch config at a worktree instead of the main repo.
+///
+/// Every path inside `repo` (in odoo-bin, python, arguments and the Odoo
+/// config file) moves to `worktree`. The addons path always comes first with
+/// the worktree folders that hold the request's modules, and is passed as
+/// `--addons-path`, which wins over the config file. So upgrades and tests
+/// run the code the AI changed, not the main checkout.
+pub fn for_worktree(
+    launch: &OdooLaunch,
+    repo: &Path,
+    worktree: &Path,
+    conf_text: Option<&str>,
+    conf_path: &Path,
+    module_parents: &[PathBuf],
+    title: &str,
+) -> TaskLaunch {
+    let m = |s: &str| remap_path(&resolve(s, worktree), repo, worktree);
+    let mut addons: Vec<String> = module_parents
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect();
+    let mut args = Vec::new();
+    let mut it = launch.base_args.iter().peekable();
+    let mut uses_conf = false;
+    while let Some(a) = it.next() {
+        if a == "--addons-path" {
+            if let Some(v) = it.next() {
+                addons.extend(split_paths(&m(v)));
+            }
+        } else if let Some(v) = a.strip_prefix("--addons-path=") {
+            addons.extend(split_paths(&m(v)));
+        } else if a == "-c" || a == "--config" {
+            it.next();
+            uses_conf = true;
+        } else if a.starts_with("--config=") {
+            uses_conf = true;
+        } else {
+            args.push(m(a));
+        }
+    }
+    let conf = if uses_conf {
+        conf_text.map(|text| {
+            let mut out = String::new();
+            for line in text.lines() {
+                let key = line.split('=').next().unwrap_or("").trim();
+                if key == "addons_path" {
+                    let v = line.split_once('=').map(|x| x.1).unwrap_or("");
+                    addons.extend(split_paths(&m(v)));
+                    continue;
+                }
+                out.push_str(&m(line));
+                out.push('\n');
+            }
+            out
+        })
+    } else {
+        None
+    };
+    if conf.is_some() {
+        args.insert(0, conf_path.to_string_lossy().into_owned());
+        args.insert(0, "-c".into());
+    }
+    let mut seen = std::collections::HashSet::new();
+    addons.retain(|p| seen.insert(p.clone()));
+    if !addons.is_empty() {
+        args.push(format!("--addons-path={}", addons.join(",")));
+    }
+    let task = OdooLaunch {
+        name: title.to_string(),
+        python: launch.python.as_deref().map(m),
+        odoo_bin: m(&launch.odoo_bin),
+        base_args: args,
+        config_file: conf
+            .as_ref()
+            .map(|_| conf_path.to_string_lossy().into_owned()),
+    };
+    let mut program_args = Vec::new();
+    program_args.extend(task.base_args.iter().cloned());
+    let launch_json = serde_json::to_string_pretty(&serde_json::json!({
+        "version": "0.2.0",
+        "configurations": [{
+            "name": title,
+            "type": "debugpy",
+            "request": "launch",
+            "program": task.odoo_bin,
+            "python": task.python,
+            "args": program_args,
+            "cwd": worktree.to_string_lossy(),
+        }]
+    }))
+    .unwrap_or_default();
+    TaskLaunch {
+        launch: task,
+        conf,
+        launch_json,
+    }
+}
+
 /// Modules touched by a list of changed paths (relative to `repo`).
 ///
 /// A module is the nearest parent folder with a `__manifest__.py`.
@@ -351,6 +491,59 @@ mod tests {
 
         let run = command(&launch, wt, "acme_dev", 8070, Mode::Run);
         assert!(run.args.windows(2).any(|w| w == ["--http-port", "8070"]));
+    }
+
+    #[test]
+    fn worktree_launch_points_at_the_worktree() {
+        let repo = Path::new("/home/me/odoo/custom/Indocasa");
+        let wt = Path::new("/home/me/odoo/custom/Indocasa/.floww/worktrees/ST-003");
+        let launch = OdooLaunch {
+            name: "Odoo".into(),
+            python: Some("/home/me/venv/bin/python".into()),
+            odoo_bin: "/home/me/odoo/src/odoo-bin".into(),
+            base_args: vec![
+                "-c".into(),
+                "/home/me/odoo/odoo.conf".into(),
+                "--addons-path=/home/me/odoo/src/addons,/home/me/odoo/custom/Indocasa".into(),
+                "--log-level=info".into(),
+            ],
+            config_file: Some("/home/me/odoo/odoo.conf".into()),
+        };
+        let conf = "[options]\naddons_path = /home/me/odoo/src/addons, /home/me/odoo/custom/Indocasa,/home/me/odoo/custom/Indocasa2\ndb_user = odoo\n";
+        let t = for_worktree(
+            &launch,
+            repo,
+            wt,
+            Some(conf),
+            Path::new("/tmp/task/odoo.conf"),
+            &[wt.to_path_buf()],
+            "FloWW ST-003",
+        );
+        let addons = t
+            .launch
+            .base_args
+            .iter()
+            .find_map(|a| a.strip_prefix("--addons-path="))
+            .unwrap();
+        let list: Vec<&str> = addons.split(',').collect();
+        assert_eq!(list[0], wt.to_str().unwrap(), "worktree first");
+        assert!(list.contains(&"/home/me/odoo/src/addons"));
+        assert!(
+            list.contains(&"/home/me/odoo/custom/Indocasa2"),
+            "similar names untouched"
+        );
+        assert!(
+            !list.contains(&"/home/me/odoo/custom/Indocasa"),
+            "main repo no longer used"
+        );
+        assert_eq!(
+            t.launch.base_args[..2],
+            ["-c".to_string(), "/tmp/task/odoo.conf".to_string()]
+        );
+        let c = t.conf.unwrap();
+        assert!(!c.contains("addons_path") && c.contains("db_user = odoo"));
+        assert_eq!(t.launch.odoo_bin, "/home/me/odoo/src/odoo-bin");
+        assert!(t.launch_json.contains("FloWW ST-003"));
     }
 
     #[test]

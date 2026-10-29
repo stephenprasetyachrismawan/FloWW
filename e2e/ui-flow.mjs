@@ -163,6 +163,15 @@ try {
   await page.getByRole("button", { name: "Start Odoo" }).click();
   await page.getByText("Odoo is running").waitFor(T);
   await shot("human-test");
+  // A general change from the chat while testing: back to the same build session, then testing again.
+  const box = page.getByLabel("Message to Claude Code");
+  await box.fill("Also show the invoiced quantity on the order line");
+  await box.press("Enter");
+  await page.getByText("Also show the invoiced quantity on the order line").first().waitFor(T);
+  await page.getByText("Test it yourself in Odoo.").waitFor({ timeout: 40000 });
+  await shot("chat");
+  await page.getByRole("button", { name: "Start Odoo" }).click();
+  await page.getByText("Odoo is running").waitFor(T);
   // Mark every case as working, one at a time.
   const works = page.getByRole("button", { name: "Works" });
   const total = await works.count();
@@ -189,6 +198,20 @@ try {
   await page.getByRole("button", { name: "Graph" }).click();
   await page.waitForTimeout(500);
   await shot("graph");
+  // Appearance: a bigger text size applies right away.
+  await page.getByRole("link", { name: "Settings" }).click();
+  await page.getByRole("radio", { name: "Large", exact: true }).click();
+  await page.waitForFunction(() => document.getElementById("root")?.style.zoom === "1.1", null, T);
+  await page.getByRole("radio", { name: "Normal", exact: true }).click();
+  // Delete a new request.
+  await page.getByRole("link", { name: "Board" }).click();
+  await page.getByRole("button", { name: "New request" }).click();
+  await page.getByLabel("What is it about?").fill("Request to delete");
+  await page.getByLabel("Details").fill("x");
+  await page.getByRole("button", { name: "Create request" }).click();
+  await page.getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("button", { name: "Delete request" }).click();
+  await page.getByText("SP-002 deleted").waitFor(T);
   // Update check: nothing newer than this version.
   await page.getByRole("button", { name: "Check for updates" }).click();
   await page.getByText(`You have the latest version (${version}).`).waitFor(T);

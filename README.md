@@ -16,25 +16,25 @@ Download from [Releases](https://github.com/stephenprasetyachrismawan/FloWW/rele
 **Desktop app, .deb (Ubuntu/Debian)**
 
 ```sh
-curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.5/FloWW_0.1.5_amd64.deb
-sudo apt install ./FloWW_0.1.5_amd64.deb
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.6/FloWW_0.1.6_amd64.deb
+sudo apt install ./FloWW_0.1.6_amd64.deb
 floww                               # or open "FloWW" from the app menu
 ```
 
 **Desktop app, AppImage (any distro)**
 
 ```sh
-curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.5/FloWW_0.1.5_amd64.AppImage
-chmod +x FloWW_0.1.5_amd64.AppImage
-./FloWW_0.1.5_amd64.AppImage        # needs libfuse2 (libfuse2t64 on Ubuntu 24.04)
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.6/FloWW_0.1.6_amd64.AppImage
+chmod +x FloWW_0.1.6_amd64.AppImage
+./FloWW_0.1.6_amd64.AppImage        # needs libfuse2 (libfuse2t64 on Ubuntu 24.04)
 ```
 
 **Web UI in your browser (floww-web)**
 
 ```sh
-curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.5/floww-web-v0.1.5-linux-x86_64.tar.gz
-tar xzf floww-web-v0.1.5-linux-x86_64.tar.gz
-install -Dm755 floww-web-v0.1.5-linux-x86_64/floww-web ~/.local/bin/floww-web
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.6/floww-web-v0.1.6-linux-x86_64.tar.gz
+tar xzf floww-web-v0.1.6-linux-x86_64.tar.gz
+install -Dm755 floww-web-v0.1.6-linux-x86_64/floww-web ~/.local/bin/floww-web
 floww-web --open                    # default port 7171
 ```
 
@@ -115,8 +115,11 @@ too.
    `dev/{ddmmyyyy}_{slug}`, e.g. `dev/28102026_invoice-dobel-saat`; both set in Settings), then one
    Claude Code session builds the whole PRD: the PRD is the spec, tests come first, and it runs the
    module tests itself. If tests still fail it asks you; your hint continues the same session.
-5. **Testing** → FloWW upgrades the modules and starts Odoo (one request at a time on the shared
-   database); you mark each case Works/Broken; feedback goes back to step 4.
+5. **Testing** → FloWW upgrades the modules and starts Odoo from the request's worktree (its own
+   temporary launch config and port; requests may share the local database); you mark each case
+   Works/Broken, or ask for any change in the chat; it goes back to the same build session.
+   The **Now** tab is a chat with Claude Code, like the VS Code extension: replies with colored
+   code, each tool call, and a box to add an instruction or stop at any time.
 6. **Ship** → AI-drafted commit message you can edit, one squashed commit, push, optional PR.
 
 The brain lives on the orphan branch `floww/brain` (worktree `.floww/brain`), synced for the team.

@@ -12,6 +12,10 @@ pub enum Event {
         prd: Box<Prd>,
     },
     WorkspacesChanged,
+    PrdDeleted {
+        workspace: String,
+        id: String,
+    },
     LockChanged {
         workspace: String,
     },

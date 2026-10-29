@@ -1,11 +1,13 @@
-import { ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, LoaderCircle, Play } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, LoaderCircle, Play, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 
+import { Chat } from "@/components/chat";
 import { Page } from "@/components/page";
 import { Timeline } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Field, Input, OptionList, Textarea } from "@/components/ui/field";
+import { Modal } from "@/components/ui/modal";
 import { api, openExternal } from "@/lib/api";
 import { PHASES, phaseOf, TYPE_LABEL } from "@/lib/pipeline";
 import { useAction, useStore } from "@/lib/store";
@@ -34,7 +36,10 @@ export function PrdDetailPage() {
     <Page narrow>
       <div className="flex flex-col gap-3.5">
         <BackLink />
-        <div>
+        <div className="relative pr-24">
+          <div className="absolute top-1 right-0">
+            <DeleteRequest prd={prd} ws={wsId} />
+          </div>
           <h1 className="font-serif text-[28px] leading-tight font-semibold text-balance">{prd.title}</h1>
           <div className="mt-1.5 text-[13px] text-faint">
             {prd.id} · {TYPE_LABEL[prd.type]}
@@ -78,6 +83,49 @@ export function PrdDetailPage() {
   );
 }
 
+function DeleteRequest({ prd, ws }: { prd: Prd; ws: string }) {
+  const [open, setOpen] = useState(false);
+  const { run, busy } = useAction();
+  const navigate = useNavigate();
+  return (
+    <>
+      <Button variant="link" className="text-[13px]" onClick={() => setOpen(true)}>
+        <Trash2 className="size-3.5" />
+        Delete
+      </Button>
+      {open ? (
+        <Modal
+          title={`Delete ${prd.id}?`}
+          sub={prd.title}
+          onClose={() => setOpen(false)}
+          footer={
+            <>
+              <span className="flex-1" />
+              <Button variant="link" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="border-bad text-bad"
+                disabled={busy}
+                onClick={async () => {
+                  if (await run(() => api.act(ws, prd.id, "delete"), `${prd.id} deleted`)) navigate("/");
+                }}
+              >
+                {busy ? "Deleting…" : "Delete request"}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-[14px] text-text">
+            FloWW stops its AI and Odoo, and removes its worktree{prd.branch ? <>, local branch <span className="font-mono text-ink">{prd.branch}</span></> : null} and conversation.
+          </p>
+          <p className="text-[13.5px] text-muted">Notes in the brain stay. Anything already pushed to the remote stays there.</p>
+        </Modal>
+      ) : null}
+    </>
+  );
+}
+
 function BackLink() {
   return (
     <Link to="/" className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-muted hover:text-ink">
@@ -102,22 +150,23 @@ function Note({ children }: { children: React.ReactNode }) {
 
 function Now({ prd, ws }: { prd: Prd; ws: string }) {
   const g = prd.grill;
-  if (prd.step === "grill_prd" && prd.status === "needs" && g) return <GrillView prd={prd} ws={ws} />;
-  if (prd.step === "approve_prd" && prd.status === "needs") return <ApproveView prd={prd} ws={ws} />;
-  if (["start_odoo", "upgrade_modules", "human_test"].includes(prd.step) && prd.status !== "failed" && prd.status !== "paused") return <TestView prd={prd} ws={ws} />;
-  if (["commit_message", "commit", "push", "pull_request"].includes(prd.step) && prd.ship && prd.status !== "failed") return <ShipView prd={prd} ws={ws} />;
-  if (prd.status === "done") return <DoneView prd={prd} />;
-  return <WorkView prd={prd} ws={ws} />;
-}
-
-function WorkView({ prd, ws }: { prd: Prd; ws: string }) {
-  const { workspace } = useStore();
-  const { run, busy } = useAction();
-  const [hint, setHint] = useState<string | null>(null);
-  const live = prd.status === "ai" || prd.status === "wait";
-  const stuck = prd.status === "failed" || prd.status === "paused" || (prd.status === "needs" && prd.step === "develop");
-  const holder = workspace?.lock.holder;
   const similar = prd.context?.similar;
+  let panel: React.ReactNode = null;
+  let placeholder: string | undefined;
+  if (prd.step === "grill_prd" && prd.status === "needs" && g) {
+    panel = <GrillView prd={prd} ws={ws} />;
+    placeholder = "Or type your own answer…";
+  } else if (prd.step === "approve_prd" && prd.status === "needs") {
+    panel = <ApproveView prd={prd} ws={ws} />;
+    placeholder = "A note for the build…";
+  } else if (["start_odoo", "upgrade_modules", "human_test"].includes(prd.step) && prd.status !== "failed" && prd.status !== "paused") {
+    panel = <TestView prd={prd} ws={ws} />;
+    placeholder = "Anything to change or fix? Claude works on it from the code as it is now.";
+  } else if (["commit_message", "commit", "push", "pull_request"].includes(prd.step) && prd.ship && prd.status !== "failed") {
+    panel = <ShipView prd={prd} ws={ws} />;
+  } else if (prd.status === "done") {
+    panel = <DoneView prd={prd} />;
+  }
   return (
     <div className="flex flex-col gap-5.5">
       {similar ? (
@@ -125,58 +174,8 @@ function WorkView({ prd, ws }: { prd: Prd; ws: string }) {
           This looks like <Link className="font-semibold text-ink underline" to={`/prd/${similar}`}>{similar}</Link>. Check it before going on.
         </Note>
       ) : null}
-      <Lead
-        title={prd.status === "paused" ? "Paused." : prd.status === "failed" ? "Stopped." : `${prd.sub}.`}
-        sub={
-          prd.status === "failed"
-            ? prd.sub
-            : prd.status === "wait" && holder
-              ? `${holder} is ${workspace?.lock.doing || "using the database"}. This continues on its own when it is free.`
-              : prd.status === "needs" && prd.step === "develop"
-                ? "The AI could not make the tests pass. Give it a hint, then continue."
-                : undefined
-        }
-      />
-      <Timeline entries={prd.timeline} live={live} limit={8} />
-      <div className="flex flex-wrap items-center gap-4.5">
-        {stuck ? (
-          <Button variant="primary" disabled={busy} onClick={() => run(() => api.act(ws, prd.id, "resume"))}>
-            {prd.action === "Try again" ? "Try again" : "Continue"}
-          </Button>
-        ) : null}
-        {prd.status === "ai" ? (
-          <Button variant="link" disabled={busy} onClick={() => run(() => api.act(ws, prd.id, "pause"))}>
-            Pause
-          </Button>
-        ) : null}
-        {prd.status === "wait" ? (
-          <Button variant="link" disabled={busy} onClick={() => run(() => api.act(ws, prd.id, "take-over"), "Database handed over")}>
-            I need the database now
-          </Button>
-        ) : null}
-        {["develop", "feedback"].includes(prd.step) || stuck ? (
-          <Button variant="link" onClick={() => setHint(hint === null ? "" : null)}>
-            Give a hint
-          </Button>
-        ) : null}
-      </div>
-      {hint !== null ? (
-        <Field label="Your hint" htmlFor="hint" hint="Used in the next AI session for this request.">
-          <Textarea id="hint" value={hint} onChange={(e) => setHint(e.target.value)} placeholder="For example: backorders are created through procurement_group_id" />
-          <div className="flex gap-4">
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={!hint.trim() || busy}
-              onClick={async () => {
-                if (await run(() => api.act(ws, prd.id, "hint", { text: hint }), "Hint saved")) setHint(null);
-              }}
-            >
-              Save hint
-            </Button>
-          </div>
-        </Field>
-      ) : null}
+      {panel}
+      <Chat prd={prd} ws={ws} placeholder={placeholder} />
     </div>
   );
 }
@@ -367,7 +366,7 @@ function TestView({ prd, ws }: { prd: Prd; ws: string }) {
   const { workspace } = useStore();
   const { run, busy } = useAction();
   const [open, setOpen] = useState<number | null>(null);
-  const port = workspace?.config.workspace.http_port ?? 8069;
+  const port = prd.odoo_port ?? workspace?.config.workspace.http_port ?? 8069;
   const db = workspace?.config.workspace.db ?? "";
   const live = prd.odoo === "on";
   const noOdoo = !workspace?.config.workspace.launch_config;

@@ -124,6 +124,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         case "workspaces_changed":
           void refreshApp();
           break;
+        case "prd_deleted":
+          if (e.workspace === wsRef.current) setPrds((list) => list.filter((p) => p.id !== e.id));
+          void refreshApp();
+          break;
         case "lock_changed":
           if (e.workspace === wsRef.current) {
             void api.lock(e.workspace).then((lock) => setWorkspace((w) => (w ? { ...w, lock } : w))).catch(() => undefined);

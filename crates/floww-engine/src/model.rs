@@ -70,6 +70,37 @@ pub struct Entry {
     pub cmd: Option<String>,
 }
 
+/// Who wrote a chat message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ChatRole {
+    /// What FloWW asked Claude Code to do.
+    Floww,
+    /// Claude Code's reply text.
+    Ai,
+    /// A tool call by Claude Code (read, edit, run…).
+    Tool,
+    /// A message the person typed.
+    You,
+}
+
+/// One line of the conversation shown in the chat view.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ChatMsg {
+    pub at: DateTime<Utc>,
+    pub role: ChatRole,
+    pub text: String,
+    /// Tool name for `Tool`, e.g. Bash or Edit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool: Option<String>,
+    /// Longer text shown on request, e.g. the full prompt FloWW sent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+/// Keep PRD files small: old chat lines beyond this are dropped.
+pub const CHAT_LIMIT: usize = 1500;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GrillOption {
     pub label: String,
@@ -216,6 +247,12 @@ pub struct Prd {
     /// Claude Code session that built this PRD; hints and feedback continue it.
     #[serde(default)]
     pub develop_session: Option<String>,
+    /// The conversation with Claude Code, for the chat view.
+    #[serde(default)]
+    pub chat: Vec<ChatMsg>,
+    /// Port this request's Odoo runs on (each request gets its own).
+    #[serde(default)]
+    pub odoo_port: Option<u16>,
     pub tests: Vec<TestCase>,
     pub odoo: OdooState,
     pub feedback_rounds: u32,
@@ -259,6 +296,8 @@ impl Prd {
             worktree: None,
             base_commit: None,
             develop_session: None,
+            chat: Vec::new(),
+            odoo_port: None,
             tests: Vec::new(),
             odoo: OdooState::Off,
             feedback_rounds: 0,
@@ -277,6 +316,26 @@ impl Prd {
     }
 
     /// Add a timeline entry. A new entry closes any running one.
+    pub fn say(
+        &mut self,
+        role: ChatRole,
+        text: impl Into<String>,
+        tool: Option<String>,
+        detail: Option<String>,
+    ) {
+        self.chat.push(ChatMsg {
+            at: Utc::now(),
+            role,
+            text: text.into(),
+            tool,
+            detail,
+        });
+        if self.chat.len() > CHAT_LIMIT {
+            let extra = self.chat.len() - CHAT_LIMIT;
+            self.chat.drain(..extra);
+        }
+    }
+
     pub fn log(&mut self, state: EntryState, text: impl Into<String>, cmd: Option<String>) {
         for e in &mut self.timeline {
             if e.state == EntryState::Run {

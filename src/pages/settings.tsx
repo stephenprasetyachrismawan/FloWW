@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { BranchTemplateField, DEFAULT_BRANCH_TEMPLATE } from "@/components/branch-template";
 import { Page, PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/field";
+import { Field, Input, Segmented } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api } from "@/lib/api";
+import { type Appearance, FONTS, loadAppearance, saveAppearance, SIZES } from "@/lib/appearance";
 import { useAction, useStore } from "@/lib/store";
 
 const EFFORTS = [
@@ -40,6 +41,7 @@ export function SettingsPage() {
       db: c.workspace.db,
       launch_config: c.workspace.launch_config ?? "",
       http_port: c.workspace.http_port,
+      share_database: c.workspace.share_database ?? true,
       model: c.workspace.models.default ?? "",
       develop_model: c.workspace.models.develop ?? "default",
       effort: c.workspace.models.effort ?? "default",
@@ -62,6 +64,7 @@ export function SettingsPage() {
           db: f.db,
           launch_config: f.launch_config || undefined,
           http_port: Number(f.http_port),
+          share_database: Boolean(f.share_database),
           model: f.model,
           develop_model: f.develop_model,
           effort: f.effort,
@@ -82,6 +85,7 @@ export function SettingsPage() {
   return (
     <Page narrow>
       <PageHeader title="Settings" sub={workspace.path} />
+      <AppearanceSection />
       <section className="flex flex-col gap-4.5">
         <div>
           <h3 className="text-base font-semibold">For the whole team</h3>
@@ -135,9 +139,16 @@ export function SettingsPage() {
               </SelectContent>
             </Select>
           </div>
-          <Field label="Odoo port" htmlFor="s-port">
+          <Field label="Odoo port" htmlFor="s-port" hint="The first request uses this port; others at the same time use the next free ones.">
             <Input id="s-port" type="number" value={Number(f.http_port ?? 8069)} onChange={(e) => set("http_port")(Number(e.target.value))} />
           </Field>
+          <label className="flex cursor-pointer items-start gap-2.5 self-center text-text">
+            <input type="checkbox" className="mt-1 size-4 accent-[var(--accent)]" checked={Boolean(f.share_database)} onChange={(e) => set("share_database")(e.target.checked)} />
+            <span>
+              Requests share the local database
+              <span className="block text-[12.5px] text-faint">Several requests can test at once, each Odoo on its own port. Turn off to make them wait in line.</span>
+            </span>
+          </label>
           <div className="flex flex-col gap-1.5">
             <span className="text-[13.5px] font-semibold text-ink">AI model</span>
             <Select value={String(f.model || app?.default_model || "") || undefined} onValueChange={set("model")}>
@@ -231,5 +242,43 @@ export function SettingsPage() {
         )}
       </div>
     </Page>
+  );
+}
+
+/** Text size and font for this computer. Applies right away. */
+function AppearanceSection() {
+  const [a, setA] = useState<Appearance>(loadAppearance);
+  const change = (next: Appearance) => {
+    setA(next);
+    saveAppearance(next);
+  };
+  return (
+    <section className="flex flex-col gap-4.5">
+      <div>
+        <h3 className="text-base font-semibold">Appearance</h3>
+        <p className="text-[13.5px] text-muted">On this computer only. Changes apply right away.</p>
+      </div>
+      <div className="grid grid-cols-2 gap-4.5 max-md:grid-cols-1">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[13.5px] font-semibold text-ink">Text size</span>
+          <Segmented label="Text size" value={a.size} options={SIZES.map((s) => ({ value: s.value, label: s.label }))} onChange={(size) => change({ ...a, size })} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[13.5px] font-semibold text-ink">Font</span>
+          <Select value={a.font} onValueChange={(font) => change({ ...a, font: font as Appearance["font"] })}>
+            <SelectTrigger aria-label="Font">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FONTS.map((f) => (
+                <SelectItem key={f.value} value={f.value} description={f.why}>
+                  {f.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </section>
   );
 }

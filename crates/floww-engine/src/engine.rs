@@ -39,7 +39,9 @@ pub struct Workspace {
     pub lock: DbLock,
     cancels: Mutex<HashMap<String, watch::Sender<bool>>>,
     running: Mutex<HashSet<String>>,
-    odoo: Mutex<HashMap<String, (Child, Guard)>>,
+    /// PRDs stopped because the person sent a message: continue instead of pausing.
+    redirect: Mutex<HashSet<String>>,
+    odoo: Mutex<HashMap<String, (Child, Option<Guard>)>>,
     brain_mu: Mutex<()>,
     /// Last "needs you" action notified per PRD, so the same ask is not repeated.
     notified: std::sync::Mutex<HashMap<String, String>>,
@@ -136,6 +138,7 @@ pub struct Settings {
     pub develop_model: Option<String>,
     pub effort: Option<String>,
     pub develop_effort: Option<String>,
+    pub share_database: Option<bool>,
     pub github_token: Option<String>,
 }
 
@@ -268,6 +271,7 @@ impl Engine {
             }),
             cancels: Mutex::new(HashMap::new()),
             running: Mutex::new(HashSet::new()),
+            redirect: Mutex::new(HashSet::new()),
             odoo: Mutex::new(HashMap::new()),
             brain_mu: Mutex::new(()),
             notified: std::sync::Mutex::new(HashMap::new()),
@@ -639,6 +643,9 @@ impl Engine {
         if let Some(v) = s.http_port {
             local.http_port = v;
         }
+        if let Some(v) = s.share_database {
+            local.share_database = v;
+        }
         if let Some(v) = s.model {
             local.models.default = Some(v).filter(|m| !m.is_empty());
         }
@@ -736,6 +743,10 @@ impl Engine {
             };
         let snapshot = p.clone();
         drop(prds);
+        // The request's temporary launch files are not needed once it is done.
+        if snapshot.status == Status::Done && before.0 != Status::Done {
+            let _ = std::fs::remove_dir_all(self.task_dir(ws, &snapshot.id));
+        }
         if became_needs {
             self.notify(
                 format!(
@@ -810,8 +821,28 @@ impl Engine {
             }
             let result = engine.advance(&ws, &id).await;
             ws.running.lock().await.remove(&id);
+            // A message came in while a step without AI was running: act on it now.
+            if result.is_ok() && ws.redirect.lock().await.remove(&id) {
+                let _ = engine
+                    .update(&ws, &id, |p| {
+                        p.step = Step::Develop;
+                        p.working(Step::Develop, "Working on your message");
+                    })
+                    .await;
+                engine.spawn_advance(ws.clone(), id.clone());
+                return;
+            }
             if let Err(e) = result {
-                if e == "stopped" {
+                if e == "stopped" && ws.redirect.lock().await.remove(&id) {
+                    // Stopped for a message from the person: continue with it.
+                    let _ = engine
+                        .update(&ws, &id, |p| {
+                            p.step = Step::Develop;
+                            p.working(Step::Develop, "Working on your message");
+                        })
+                        .await;
+                    engine.spawn_advance(ws.clone(), id.clone());
+                } else if e == "stopped" {
                     let _ = engine
                         .update(&ws, &id, |p| {
                             p.status = Status::Paused;
@@ -869,8 +900,23 @@ impl Engine {
     }
 
     /// Run Claude Code for a PRD and stream tool use into its timeline.
-    async fn ai(&self, ws: &Arc<Workspace>, id: &str, req: Request, minutes: u32) -> R<AiRun> {
+    async fn ai(
+        &self,
+        ws: &Arc<Workspace>,
+        id: &str,
+        req: Request,
+        label: &str,
+        minutes: u32,
+    ) -> R<AiRun> {
         let auth = self.auth_for(ws).await;
+        // A grill answer is the person's own words; everything else is FloWW asking.
+        let (role, shown) = match label.strip_prefix("Your answer: ") {
+            Some(a) => (ChatRole::You, a.to_string()),
+            None => (ChatRole::Floww, label.to_string()),
+        };
+        let prompt = req.prompt.clone();
+        self.update(ws, id, |p| p.say(role, shown, None, Some(prompt)))
+            .await?;
         let token = self.router_token(&auth).await?;
         let cancel = self.cancel_rx(ws, id).await;
         let (tx, mut rx) = mpsc::unbounded_channel::<AiEvent>();
@@ -879,7 +925,23 @@ impl Engine {
         let id2 = id.to_string();
         let consumer = tokio::spawn(async move {
             while let Some(ev) = rx.recv().await {
+                if let AiEvent::AssistantText { text } = &ev {
+                    let text = text.trim().to_string();
+                    if !text.is_empty() {
+                        let _ = engine
+                            .update(&ws2, &id2, |p| p.say(ChatRole::Ai, text, None, None))
+                            .await;
+                    }
+                    continue;
+                }
                 if let AiEvent::ToolUse { name, summary } = ev {
+                    let short: String = summary.chars().take(400).collect();
+                    let tool = name.clone();
+                    let _ = engine
+                        .update(&ws2, &id2, |p| {
+                            p.say(ChatRole::Tool, short, Some(tool), None)
+                        })
+                        .await;
                     let text = match name.as_str() {
                         "Read" => format!("Reading {summary}"),
                         "Edit" | "Write" | "MultiEdit" => format!("Changing {summary}"),
@@ -902,7 +964,19 @@ impl Engine {
         .await;
         let _ = consumer.await;
         let run = result?;
+        let final_text = run.text.trim().to_string();
         self.update(ws, id, |p| {
+            // The final answer can come only in the result event.
+            let shown = p
+                .chat
+                .iter()
+                .rev()
+                .find(|m| m.role == ChatRole::Ai)
+                .map(|m| m.text.trim() == final_text)
+                .unwrap_or(false);
+            if !final_text.is_empty() && !shown {
+                p.say(ChatRole::Ai, final_text.clone(), None, None);
+            }
             p.cost_usd += run.cost_usd;
             p.tokens_in += run.tokens_in;
             p.tokens_out += run.tokens_out;
@@ -1164,7 +1238,13 @@ impl Engine {
             ..Default::default()
         };
         let run = self
-            .ai(ws, &prd.id, req, cfg.team.steps.prd.max_minutes)
+            .ai(
+                ws,
+                &prd.id,
+                req,
+                "Find the code this request is about",
+                cfg.team.steps.prd.max_minutes,
+            )
             .await?;
         #[derive(Deserialize, Default)]
         struct Out {
@@ -1315,7 +1395,13 @@ impl Engine {
             ..Default::default()
         };
         let run = self
-            .ai(ws, &prd.id, req, cfg.team.steps.prd.max_minutes)
+            .ai(
+                ws,
+                &prd.id,
+                req,
+                "Start the grill-me questions",
+                cfg.team.steps.prd.max_minutes,
+            )
             .await?;
         self.apply_grill_reply(ws, &prd.id, &run).await
     }
@@ -1368,7 +1454,13 @@ impl Engine {
                 ..Default::default()
             };
             let res = match engine
-                .ai(&ws, &id, req, cfg.team.steps.prd.max_minutes)
+                .ai(
+                    &ws,
+                    &id,
+                    req,
+                    &format!("Your answer: {answer}"),
+                    cfg.team.steps.prd.max_minutes,
+                )
                 .await
             {
                 Ok(run) => engine.apply_grill_reply(&ws, &id, &run).await,
@@ -1415,7 +1507,13 @@ impl Engine {
             ..Default::default()
         };
         let run = self
-            .ai(ws, &prd.id, req, cfg.team.steps.prd.max_minutes)
+            .ai(
+                ws,
+                &prd.id,
+                req,
+                "Write the PRD from the answers",
+                cfg.team.steps.prd.max_minutes,
+            )
             .await?;
         #[derive(Deserialize, Default)]
         struct Out {
@@ -1516,7 +1614,13 @@ impl Engine {
                 ..Default::default()
             };
             let res = match engine
-                .ai(&ws, &id, req, cfg.team.steps.prd.max_minutes)
+                .ai(
+                    &ws,
+                    &id,
+                    req,
+                    "Ask one more question before approval",
+                    cfg.team.steps.prd.max_minutes,
+                )
                 .await
             {
                 Ok(run) => engine.apply_grill_reply(&ws, &id, &run).await,
@@ -1572,10 +1676,7 @@ impl Engine {
         modules: &[String],
     ) -> Option<(String, Vec<String>, String)> {
         let cfg = ws.cfg.read().await.clone();
-        let name = cfg.workspace.launch_config.clone()?;
-        let launches =
-            odoo::read_launch_configs(&ws.paths.repo.join(".vscode/launch.json")).ok()?;
-        let launch = odoo::find_launch(&launches, &name).ok()?;
+        let launch = self.task_launch(ws, prd).await.ok()?;
         let wt = prd
             .worktree
             .clone()
@@ -1589,11 +1690,73 @@ impl Engine {
             &launch,
             &wt,
             &cfg.workspace.db,
-            cfg.workspace.http_port,
+            prd.odoo_port.unwrap_or(cfg.workspace.http_port),
             Mode::Test(&mods),
         );
         let shown = shell_join(&cmd.program, &cmd.args);
         Some((cmd.program, cmd.args, shown))
+    }
+
+    /// The launch config for one request: a temporary copy of the workspace's
+    /// launch.json entry (and Odoo config) that points at the request's
+    /// worktree. Written to `.floww/tasks/<id>/` and removed when the request
+    /// is done or deleted.
+    async fn task_launch(&self, ws: &Workspace, prd: &Prd) -> R<odoo::OdooLaunch> {
+        let cfg = ws.cfg.read().await.clone();
+        let name = cfg
+            .workspace
+            .launch_config
+            .clone()
+            .ok_or("Set an Odoo launch config in Settings first.")?;
+        let launch_path = ws.paths.repo.join(".vscode/launch.json");
+        let launches = odoo::read_launch_configs(&launch_path).map_err(|e| {
+            format!(
+                "Could not read {}: {e}. Fix the file or pick another launch config in Settings.",
+                launch_path.display()
+            )
+        })?;
+        let launch = odoo::find_launch(&launches, &name).map_err(|_| {
+            format!("launch.json has no configuration named \"{name}\". Pick one in Settings.")
+        })?;
+        let Some(wt) = prd.worktree.clone() else {
+            return Ok(launch);
+        };
+        let conf_text = launch.config_file.as_ref().and_then(|c| {
+            let c = c.replace("${workspaceFolder}", &ws.paths.repo.to_string_lossy());
+            let path = if Path::new(&c).is_absolute() {
+                PathBuf::from(c)
+            } else {
+                ws.paths.repo.join(c)
+            };
+            std::fs::read_to_string(path).ok()
+        });
+        let mut parents: Vec<PathBuf> = odoo_facts::module_dirs(&wt)
+            .into_iter()
+            .filter_map(|d| d.parent().map(Path::to_path_buf))
+            .collect();
+        parents.sort();
+        parents.dedup();
+        let dir = self.task_dir(ws, &prd.id);
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let conf_path = dir.join("odoo.conf");
+        let t = odoo::for_worktree(
+            &launch,
+            &ws.paths.repo,
+            &wt,
+            conf_text.as_deref(),
+            &conf_path,
+            &parents,
+            &format!("FloWW {}", prd.id),
+        );
+        if let Some(c) = &t.conf {
+            std::fs::write(&conf_path, c).map_err(|e| e.to_string())?;
+        }
+        std::fs::write(dir.join("launch.json"), &t.launch_json).map_err(|e| e.to_string())?;
+        Ok(t.launch)
+    }
+
+    fn task_dir(&self, ws: &Workspace, id: &str) -> PathBuf {
+        ws.paths.floww().join("tasks").join(id)
     }
 
     async fn upgrade_command(
@@ -1602,10 +1765,7 @@ impl Engine {
         prd: &Prd,
     ) -> Option<(String, Vec<String>, String)> {
         let cfg = ws.cfg.read().await.clone();
-        let name = cfg.workspace.launch_config.clone()?;
-        let launches =
-            odoo::read_launch_configs(&ws.paths.repo.join(".vscode/launch.json")).ok()?;
-        let launch = odoo::find_launch(&launches, &name).ok()?;
+        let launch = self.task_launch(ws, prd).await.ok()?;
         let wt = prd
             .worktree
             .clone()
@@ -1614,7 +1774,7 @@ impl Engine {
             &launch,
             &wt,
             &cfg.workspace.db,
-            cfg.workspace.http_port,
+            prd.odoo_port.unwrap_or(cfg.workspace.http_port),
             Mode::Upgrade(&prd.modules),
         );
         let shown = shell_join(&cmd.program, &cmd.args);
@@ -1698,23 +1858,11 @@ impl Engine {
         let Some((program, args, shown)) = self.test_command(ws, prd, modules).await else {
             return Ok(None);
         };
-        let id = prd.id.clone();
-        let engine = self.clone();
-        let ws2 = ws.clone();
-        let guard = ws
-            .lock
-            .acquire(&prd.id, "running tests", move |holder| {
-                let holder = holder.to_string();
-                tokio::spawn(async move {
-                    let _ = engine
-                        .update(&ws2, &id, |p| {
-                            p.status = Status::Wait;
-                            p.sub = format!("Waiting for the database ({holder} is using it)");
-                        })
-                        .await;
-                });
-            })
-            .await;
+        let guard = if ws.cfg.read().await.workspace.share_database {
+            None
+        } else {
+            Some(self.wait_for_db(ws, &prd.id, "running tests").await)
+        };
         self.update(ws, &prd.id, |p| {
             p.status = Status::Ai;
             p.sub = "Running the tests".into();
@@ -1761,6 +1909,7 @@ impl Engine {
             .map(|t| t.2)
             .unwrap_or_else(|| "the module tests".into());
         let follow_up = !prd.feedback.is_empty() && prd.develop_session.is_some();
+        let used = prd.feedback.len();
         let prompt = if follow_up {
             prompts::develop_follow_up(prd, &prd.feedback, &test_cmd)
         } else {
@@ -1801,6 +1950,11 @@ impl Engine {
             }
         })
         .await?;
+        let label = if follow_up {
+            "Continue the build session with your notes"
+        } else {
+            "Build the PRD: the PRD is the spec, tests first"
+        };
         let req = Request {
             prompt,
             cwd: prd.worktree.clone().ok_or("the PRD has no worktree")?,
@@ -1815,7 +1969,7 @@ impl Engine {
             ..Default::default()
         };
         let run = self
-            .ai(ws, &prd.id, req, cfg.team.steps.develop.max_minutes)
+            .ai(ws, &prd.id, req, label, cfg.team.steps.develop.max_minutes)
             .await?;
 
         // Modules the session touched.
@@ -1833,7 +1987,10 @@ impl Engine {
             if run.session_id.is_some() {
                 p.develop_session = run.session_id.clone();
             }
-            p.feedback.clear();
+            // Notes sent during this run stay for the next round.
+            let n = used.min(p.feedback.len());
+            p.feedback.drain(..n);
+            let more = !p.feedback.is_empty();
             for m in &touched {
                 if !p.modules.contains(m) {
                     p.modules.push(m.clone());
@@ -1843,6 +2000,10 @@ impl Engine {
                 p.module = p.modules.first().cloned();
             }
             match &outcome {
+                prompts::TestsLine::Pass if more => {
+                    p.log(EntryState::Done, "Tests pass; now your newer message", None);
+                    p.working(Step::Develop, "Working on your message");
+                }
                 prompts::TestsLine::Pass => {
                     for c in &mut p.criteria {
                         c.done = true;
@@ -2004,23 +2165,13 @@ impl Engine {
         args: Vec<String>,
         shown: String,
     ) -> R<()> {
-        let id_s = id.to_string();
-        let engine = self.clone();
-        let ws2 = ws.clone();
-        let guard = ws
-            .lock
-            .acquire(id, "testing in Odoo", move |holder| {
-                let holder = holder.to_string();
-                tokio::spawn(async move {
-                    let _ = engine
-                        .update(&ws2, &id_s, |p| {
-                            p.status = Status::Wait;
-                            p.sub = format!("Waiting for the database ({holder} is using it)");
-                        })
-                        .await;
-                });
-            })
-            .await;
+        let share = ws.cfg.read().await.workspace.share_database;
+        let guard = if share {
+            None
+        } else {
+            Some(self.wait_for_db(ws, id, "testing in Odoo").await)
+        };
+        let port = self.odoo_port_for(ws, id).await?;
         let prd = self.get_prd(&ws.id, id).await?;
         let wt = prd.worktree.clone().ok_or("the PRD has no worktree")?;
         self.update(ws, id, |p| {
@@ -2038,20 +2189,9 @@ impl Engine {
         }
         // Start the server for the person to test.
         let cfg = ws.cfg.read().await.clone();
-        let launches = odoo::read_launch_configs(&ws.paths.repo.join(".vscode/launch.json"))
-            .map_err(|e| e.to_string())?;
-        let launch = odoo::find_launch(
-            &launches,
-            cfg.workspace.launch_config.as_deref().unwrap_or_default(),
-        )
-        .map_err(|e| e.to_string())?;
-        let cmd = odoo::command(
-            &launch,
-            &wt,
-            &cfg.workspace.db,
-            cfg.workspace.http_port,
-            Mode::Run,
-        );
+        let prd = self.get_prd(&ws.id, id).await?;
+        let launch = self.task_launch(ws, &prd).await?;
+        let cmd = odoo::command(&launch, &wt, &cfg.workspace.db, port, Mode::Run);
         std::fs::create_dir_all(ws.paths.logs()).map_err(|e| e.to_string())?;
         let log = std::fs::File::create(ws.paths.logs().join(format!("odoo-{id}.log")))
             .map_err(|e| e.to_string())?;
@@ -2064,9 +2204,8 @@ impl Engine {
             .kill_on_drop(true)
             .spawn()
             .map_err(|e| format!("could not start Odoo: {e}"))?;
-        let mut preempted = guard.preempted.clone();
+        let preempted = guard.as_ref().map(|g| g.preempted.clone());
         ws.odoo.lock().await.insert(id.to_string(), (child, guard));
-        let port = cfg.workspace.http_port;
         self.update(ws, id, |p| {
             p.odoo = OdooState::On;
             p.log(
@@ -2078,6 +2217,9 @@ impl Engine {
         })
         .await?;
         // If someone takes the database over, stop this Odoo.
+        let Some(mut preempted) = preempted else {
+            return Ok(());
+        };
         let engine = self.clone();
         let ws2 = ws.clone();
         let id2 = id.to_string();
@@ -2104,6 +2246,51 @@ impl Engine {
             }
         });
         Ok(())
+    }
+
+    /// Wait for the database lock, showing who holds it.
+    async fn wait_for_db(&self, ws: &Arc<Workspace>, id: &str, what: &str) -> Guard {
+        let id_s = id.to_string();
+        let engine = self.clone();
+        let ws2 = ws.clone();
+        ws.lock
+            .acquire(id, what, move |holder| {
+                let holder = holder.to_string();
+                tokio::spawn(async move {
+                    let _ = engine
+                        .update(&ws2, &id_s, |p| {
+                            p.status = Status::Wait;
+                            p.sub = format!("Waiting for the database ({holder} is using it)");
+                        })
+                        .await;
+                });
+            })
+            .await
+    }
+
+    /// Each request runs Odoo on its own port: the workspace port for the first,
+    /// then the next free one. Kept on the PRD so the link stays the same.
+    async fn odoo_port_for(&self, ws: &Workspace, id: &str) -> R<u16> {
+        let base = ws.cfg.read().await.workspace.http_port;
+        let prd = self.get_prd(&ws.id, id).await?;
+        let taken: HashSet<u16> = {
+            let prds = ws.prds.lock().await;
+            let odoo = ws.odoo.lock().await;
+            prds.values()
+                .filter(|p| p.id != id && odoo.contains_key(&p.id))
+                .filter_map(|p| p.odoo_port)
+                .collect()
+        };
+        let free =
+            |p: u16| !taken.contains(&p) && std::net::TcpListener::bind(("127.0.0.1", p)).is_ok();
+        let port = match prd.odoo_port {
+            Some(p) if free(p) => p,
+            _ => (base..base.saturating_add(200))
+                .find(|p| free(*p))
+                .ok_or_else(|| format!("No free port from {base} upward for Odoo. Stop another Odoo or change the port in Settings."))?,
+        };
+        self.update(ws, id, |p| p.odoo_port = Some(port)).await?;
+        Ok(port)
     }
 
     async fn stop_odoo_inner(&self, ws: &Workspace, id: &str) {
@@ -2264,7 +2451,13 @@ impl Engine {
             pr_body: format!("PRD: {}", prd.id),
         };
         let out = match self
-            .ai(ws, &prd.id, req, cfg.team.steps.commit.max_minutes)
+            .ai(
+                ws,
+                &prd.id,
+                req,
+                "Draft the commit message",
+                cfg.team.steps.commit.max_minutes,
+            )
             .await
         {
             Ok(run) => jsonx::extract::<Out>(&run.text)
@@ -2520,6 +2713,121 @@ impl Engine {
         Ok(())
     }
 
+    /// Delete a request: stop its AI and Odoo, remove its worktree, local
+    /// branch and temporary launch files. Brain notes and anything already
+    /// pushed stay.
+    pub async fn delete_prd(&self, wid: &str, id: &str) -> R<()> {
+        let ws = self.ws(wid).await?;
+        let prd = self.get_prd(wid, id).await?;
+        if let Some(tx) = ws.cancels.lock().await.get(id) {
+            let _ = tx.send(true);
+        }
+        self.stop_odoo_inner(&ws, id).await;
+        ws.lock.leave(id).await;
+        // Give a running step a moment to stop before its files go.
+        for _ in 0..50 {
+            if !ws.running.lock().await.contains(id) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        if let Some(wt) = &prd.worktree
+            && wt.exists()
+        {
+            git::worktree_remove(&ws.paths.repo, wt).await.map_err(|e| {
+                    format!("Could not remove the worktree {}: {e}. Close programs using it and try again.", wt.display())
+                })?;
+        }
+        if let Some(b) = &prd.branch
+            && git::local_branch_exists(&ws.paths.repo, b).await
+        {
+            let _ = git::git(&ws.paths.repo, &["branch", "-D", b]).await;
+        }
+        // Out of memory first, so a step still finishing cannot save it again.
+        ws.prds.lock().await.remove(id);
+        let _ = std::fs::remove_dir_all(self.task_dir(&ws, id));
+        let _ = std::fs::remove_file(ws.paths.logs().join(format!("odoo-{id}.log")));
+        let file = ws.paths.runs().join(format!("{id}.json"));
+        if file.exists() {
+            std::fs::remove_file(&file)
+                .map_err(|e| format!("Could not delete the request file: {e}"))?;
+        }
+        ws.cancels.lock().await.remove(id);
+        ws.redirect.lock().await.remove(id);
+        self.emit(Event::PrdDeleted {
+            workspace: ws.id.clone(),
+            id: id.to_string(),
+        });
+        Ok(())
+    }
+
+    /// A message from the person in the chat. While the AI works on the build,
+    /// it is stopped and continues the same session with the message. During
+    /// testing, Odoo stops and the message goes to the build session. Before
+    /// building starts, it is kept and given to the build.
+    pub async fn message(&self, wid: &str, id: &str, text: String) -> R<()> {
+        let ws = self.ws(wid).await?;
+        let text = text.trim().to_string();
+        if text.is_empty() {
+            return Err("Write a message first.".into());
+        }
+        let prd = self.get_prd(wid, id).await?;
+        if prd.status == Status::Done {
+            return Err("This request is done. Start a new request for more changes.".into());
+        }
+        // A grill question is waiting: the message is the answer.
+        if prd.step == Step::GrillPrd
+            && prd
+                .grill
+                .as_ref()
+                .map(|g| g.current.is_some())
+                .unwrap_or(false)
+        {
+            return self.answer(wid, id, text, true).await;
+        }
+        let building = prd.worktree.is_some()
+            && !matches!(
+                prd.step,
+                Step::CommitMessage | Step::Commit | Step::Push | Step::PullRequest | Step::Done
+            );
+        let running = ws.running.lock().await.contains(id);
+        self.update(&ws, id, |p| {
+            p.say(ChatRole::You, text.clone(), None, None);
+            p.feedback.push(text.clone());
+            if !building {
+                p.log(
+                    EntryState::Info,
+                    format!("Your note for the build: {text}"),
+                    None,
+                );
+            }
+        })
+        .await?;
+        if !building {
+            return Ok(());
+        }
+        if running {
+            let is_dev = matches!(prd.step, Step::Develop | Step::Feedback);
+            if is_dev && prd.develop_session.is_none() {
+                // The first build answer has not come back yet; it picks the note up after.
+                return Ok(());
+            }
+            ws.redirect.lock().await.insert(id.to_string());
+            if let Some(tx) = ws.cancels.lock().await.get(id) {
+                let _ = tx.send(true);
+            }
+            return Ok(());
+        }
+        self.stop_odoo_inner(&ws, id).await;
+        self.update(&ws, id, |p| {
+            p.step = Step::Develop;
+            p.working(Step::Develop, "Working on your message");
+        })
+        .await?;
+        self.spawn_advance(ws, id.to_string());
+        Ok(())
+    }
+
     pub async fn hint(&self, wid: &str, id: &str, text: String) -> R<()> {
         let ws = self.ws(wid).await?;
         let text = text.trim().to_string();
@@ -2527,6 +2835,7 @@ impl Engine {
             return Err("write a hint first".into());
         }
         self.update(&ws, id, |p| {
+            p.say(ChatRole::You, text.clone(), None, None);
             p.log(EntryState::Info, format!("Your hint: {text}"), None);
             p.feedback.push(format!("Hint from the person: {text}"));
         })

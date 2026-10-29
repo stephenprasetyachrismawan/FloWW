@@ -53,7 +53,9 @@ emit({"type": "result", "subtype": "success", "is_error": False, "session_id": "
 "#;
 
 const FAKE_ODOO: &str = r#"#!/usr/bin/env python3
-import sys, time
+import os, sys, time
+with open(os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "odoo-args.log"), "a") as f:
+    f.write(" ".join(sys.argv[1:]) + "\n")
 if "--stop-after-init" in sys.argv:
     print("odoo: done")
     sys.exit(0)
@@ -253,17 +255,65 @@ async fn prd_from_request_to_done() {
     let wt = p.worktree.clone().unwrap();
     assert!(wt.join("CLAUDE.local.md").exists());
     assert!(repo.join(".floww/brain/changes/TT-001.md").exists());
+    // The chat has what FloWW asked, Claude's replies and tool calls.
+    use floww_engine::model::ChatRole;
+    assert!(
+        p.chat
+            .iter()
+            .any(|m| m.role == ChatRole::Floww && m.detail.is_some())
+    );
+    assert!(
+        p.chat
+            .iter()
+            .any(|m| m.role == ChatRole::Ai && m.text.contains("TESTS: PASS"))
+    );
+    assert!(p.chat.iter().any(|m| m.role == ChatRole::Tool));
+    assert!(
+        p.chat
+            .iter()
+            .any(|m| m.role == ChatRole::You && m.text.contains("Returns count"))
+    );
+    // A temporary launch.json for this request points Odoo at its worktree.
+    let task_launch = repo.join(".floww/tasks/TT-001/launch.json");
+    let lj = std::fs::read_to_string(&task_launch).unwrap();
+    assert!(
+        lj.contains(&format!("--addons-path={}", wt.display())),
+        "{lj}"
+    );
 
-    // Human test in Odoo, with the shared database lock.
+    // Human test in Odoo.
     engine.start_odoo(&ws, &id).await.unwrap();
-    wait_for(&engine, &ws, &id, "odoo running", |p| {
+    let p = wait_for(&engine, &ws, &id, "odoo running", |p| {
         p.step == Step::HumanTest && p.status == Status::Needs
     })
     .await;
-    assert_eq!(
-        engine.lock_state(&ws).await.unwrap().holder.as_deref(),
-        Some("TT-001")
-    );
+    // The upgrade ran against the worktree, on this request's own port.
+    let odoo_log = std::fs::read_to_string(bin.join("odoo-args.log")).unwrap();
+    let addons = format!("--addons-path={}", wt.join("addons").display());
+    assert!(odoo_log.lines().all(|l| l.contains(&addons)), "{odoo_log}");
+    assert!(odoo_log.contains("--http-port 8199"), "{odoo_log}");
+    assert_eq!(p.odoo_port, Some(8199));
+
+    // A chat message while testing: Odoo stops, the same build session gets it.
+    engine
+        .message(&ws, &id, "Also show the count on the invoice".into())
+        .await
+        .unwrap();
+    wait_for(&engine, &ws, &id, "back to testing", |p| {
+        p.step == Step::StartOdoo
+            && p.status == Status::Needs
+            && p.chat
+                .iter()
+                .any(|m| m.text.contains("Also show the count"))
+    })
+    .await;
+    engine.start_odoo(&ws, &id).await.unwrap();
+    wait_for(&engine, &ws, &id, "odoo running again", |p| {
+        p.step == Step::HumanTest && p.status == Status::Needs
+    })
+    .await;
+    // The database is shared by default: no request holds a lock.
+    assert!(engine.lock_state(&ws).await.unwrap().holder.is_none());
     engine
         .mark_test(&ws, &id, 0, Some(TestResult::Pass), None)
         .await
@@ -322,6 +372,27 @@ async fn prd_from_request_to_done() {
         .output()
         .unwrap();
     assert!(String::from_utf8_lossy(&heads.stdout).contains("floww/brain"));
+    assert!(
+        !task_launch.exists(),
+        "temporary launch files go when the request is done"
+    );
+
+    // Delete a request: its file, worktree and branch go.
+    let id2 = engine
+        .create_request(
+            &ws,
+            NewRequest {
+                title: "Delete me".into(),
+                description: "x".into(),
+                kind: PrdType::Feature,
+                reporter: "Dewi".into(),
+            },
+        )
+        .await
+        .unwrap();
+    engine.delete_prd(&ws, &id2).await.unwrap();
+    assert!(engine.get_prd(&ws, &id2).await.is_err());
+    assert!(!repo.join(format!(".floww/runs/{id2}.json")).exists());
 
     // Reopening the engine reads the same state from disk.
     drop(engine);

@@ -150,3 +150,173 @@
     transition: none !important;
   }
 }
+
+/* Text size and font chosen in Settings → Appearance (stored per computer). */
+:root[data-font="serif"] body {
+  font-family: var(--font-serif);
+}
+:root[data-font="system"] body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Chat: Claude's replies as Markdown, code like an editor. */
+.md {
+  color: var(--text);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.md > * + * {
+  margin-top: 0.6em;
+}
+.md h1,
+.md h2,
+.md h3 {
+  color: var(--ink);
+  font-weight: 650;
+  line-height: 1.3;
+  margin-top: 1em;
+}
+.md h1 {
+  font-size: 1.2em;
+}
+.md h2 {
+  font-size: 1.1em;
+}
+.md h3 {
+  font-size: 1em;
+}
+.md strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+.md a {
+  color: var(--ai);
+  text-decoration: underline;
+}
+.md ul {
+  list-style: disc;
+  padding-left: 1.3em;
+}
+.md ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+}
+.md li + li {
+  margin-top: 0.2em;
+}
+.md blockquote {
+  border-left: 3px solid var(--line-2);
+  padding-left: 0.8em;
+  color: var(--muted);
+}
+.md :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0.05em 0.35em;
+  color: var(--ink);
+}
+.md pre {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.8em 1em;
+  overflow-x: auto;
+}
+.md table {
+  border-collapse: collapse;
+  font-size: 0.93em;
+  display: block;
+  overflow-x: auto;
+}
+.md th,
+.md td {
+  border: 1px solid var(--line);
+  padding: 0.3em 0.6em;
+  text-align: left;
+}
+.md th {
+  background: var(--sunken);
+  color: var(--ink);
+}
+
+/* Syntax colors, quiet on purpose. */
+:root {
+  --code-bg: #f7f7f9;
+  --code-fg: #2e2e35;
+  --hl-key: #7a3fb0;
+  --hl-str: #2f7d4f;
+  --hl-num: #b0581c;
+  --hl-com: #8f8f99;
+  --hl-fn: #2f5fb3;
+  --hl-type: #a1601a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --code-bg: #121215;
+    --code-fg: #d8d8e0;
+    --hl-key: #c49bf2;
+    --hl-str: #8fd0a4;
+    --hl-num: #f0b07a;
+    --hl-com: #6f6f7a;
+    --hl-fn: #8db3f5;
+    --hl-type: #e8c27a;
+  }
+}
+:root[data-theme="dark"] {
+  --code-bg: #121215;
+  --code-fg: #d8d8e0;
+  --hl-key: #c49bf2;
+  --hl-str: #8fd0a4;
+  --hl-num: #f0b07a;
+  --hl-com: #6f6f7a;
+  --hl-fn: #8db3f5;
+  --hl-type: #e8c27a;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-literal,
+.hljs-meta .hljs-keyword {
+  color: var(--hl-key);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-attr .hljs-string,
+.hljs-addition {
+  color: var(--hl-str);
+}
+.hljs-number,
+.hljs-symbol {
+  color: var(--hl-num);
+}
+.hljs-comment,
+.hljs-quote,
+.hljs-meta {
+  color: var(--hl-com);
+  font-style: italic;
+}
+.hljs-title,
+.hljs-title.function_,
+.hljs-section {
+  color: var(--hl-fn);
+}
+.hljs-type,
+.hljs-class .hljs-title,
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-name,
+.hljs-tag {
+  color: var(--hl-type);
+}
+.hljs-deletion {
+  color: var(--bad);
+}

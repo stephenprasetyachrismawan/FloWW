@@ -141,6 +141,10 @@ pub struct Models {
     pub develop_effort: Option<String>,
 }
 
+fn yes() -> bool {
+    true
+}
+
 /// Effort levels Claude Code accepts.
 pub const EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 
@@ -152,6 +156,10 @@ pub struct WorkspaceConfig {
     pub initials: String,
     pub db: String,
     pub http_port: u16,
+    /// Requests use the local database at the same time, each Odoo on its own
+    /// port. Off: one request at a time, the others wait in line.
+    #[serde(default = "yes")]
+    pub share_database: bool,
     pub launch_config: Option<String>,
     pub github_token_ref: Option<String>,
     /// `None` means: use the app-wide auth chosen on first run.
@@ -168,6 +176,7 @@ impl Default for WorkspaceConfig {
             initials: String::new(),
             db: String::new(),
             http_port: 8069,
+            share_database: true,
             launch_config: None,
             github_token_ref: None,
             ai: None,

@@ -441,6 +441,11 @@ async fn action(
         "pause" => e.pause(&ws, &id).await?,
         "resume" => e.resume(&ws, &id).await?,
         "hint" => e.hint(&ws, &id, b.text.unwrap_or_default()).await?,
+        "message" => e.message(&ws, &id, b.text.unwrap_or_default()).await?,
+        "delete" => {
+            e.delete_prd(&ws, &id).await?;
+            return ok(json!({ "deleted": id }));
+        }
         "start-odoo" => e.start_odoo(&ws, &id).await?,
         "stop-odoo" => e.stop_odoo(&ws, &id).await?,
         "test" => {
