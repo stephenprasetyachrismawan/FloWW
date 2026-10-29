@@ -16,25 +16,25 @@ Download from [Releases](https://github.com/stephenprasetyachrismawan/FloWW/rele
 **Desktop app, .deb (Ubuntu/Debian)**
 
 ```sh
-curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.4/FloWW_0.1.4_amd64.deb
-sudo apt install ./FloWW_0.1.4_amd64.deb
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.5/FloWW_0.1.5_amd64.deb
+sudo apt install ./FloWW_0.1.5_amd64.deb
 floww                               # or open "FloWW" from the app menu
 ```
 
 **Desktop app, AppImage (any distro)**
 
 ```sh
-curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.4/FloWW_0.1.4_amd64.AppImage
-chmod +x FloWW_0.1.4_amd64.AppImage
-./FloWW_0.1.4_amd64.AppImage        # needs libfuse2 (libfuse2t64 on Ubuntu 24.04)
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.5/FloWW_0.1.5_amd64.AppImage
+chmod +x FloWW_0.1.5_amd64.AppImage
+./FloWW_0.1.5_amd64.AppImage        # needs libfuse2 (libfuse2t64 on Ubuntu 24.04)
 ```
 
 **Web UI in your browser (floww-web)**
 
 ```sh
-curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.4/floww-web-v0.1.4-linux-x86_64.tar.gz
-tar xzf floww-web-v0.1.4-linux-x86_64.tar.gz
-install -Dm755 floww-web-v0.1.4-linux-x86_64/floww-web ~/.local/bin/floww-web
+curl -LO https://github.com/stephenprasetyachrismawan/FloWW/releases/download/v0.1.5/floww-web-v0.1.5-linux-x86_64.tar.gz
+tar xzf floww-web-v0.1.5-linux-x86_64.tar.gz
+install -Dm755 floww-web-v0.1.5-linux-x86_64/floww-web ~/.local/bin/floww-web
 floww-web --open                    # default port 7171
 ```
 

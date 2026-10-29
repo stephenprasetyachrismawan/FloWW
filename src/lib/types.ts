@@ -122,7 +122,7 @@ export interface EffectiveConfig {
     launch_config: string | null;
     github_token_ref: string | null;
     ai: AiAuth | null;
-    models: { default: string | null; prd: string | null; develop: string | null; brain: string | null; commit: string | null };
+    models: { default: string | null; prd: string | null; develop: string | null; brain: string | null; commit: string | null; effort: string | null; develop_effort: string | null };
   };
 }
 

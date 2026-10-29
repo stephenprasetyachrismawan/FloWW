@@ -134,6 +134,8 @@ pub struct Settings {
     pub http_port: Option<u16>,
     pub model: Option<String>,
     pub develop_model: Option<String>,
+    pub effort: Option<String>,
+    pub develop_effort: Option<String>,
     pub github_token: Option<String>,
 }
 
@@ -430,6 +432,10 @@ impl Engine {
             .unwrap_or(AiAuth::Subscription)
     }
 
+    async fn effort_for(&self, ws: &Workspace, step: ModelStep) -> Option<String> {
+        ws.cfg.read().await.effort_for(step).map(str::to_string)
+    }
+
     async fn model_for(&self, ws: &Workspace, step: ModelStep) -> Option<String> {
         let cfg = ws.cfg.read().await;
         cfg.model_for(step)
@@ -638,6 +644,22 @@ impl Engine {
         }
         if let Some(v) = s.develop_model {
             local.models.develop = Some(v).filter(|m| !m.is_empty() && m != "default");
+        }
+        let effort = |v: String| -> R<Option<String>> {
+            match v.as_str() {
+                "" | "default" => Ok(None),
+                e if config::EFFORTS.contains(&e) => Ok(Some(e.to_string())),
+                e => Err(format!(
+                    "Effort \"{e}\" is not one of: {}.",
+                    config::EFFORTS.join(", ")
+                )),
+            }
+        };
+        if let Some(v) = s.effort {
+            local.models.effort = effort(v)?;
+        }
+        if let Some(v) = s.develop_effort {
+            local.models.develop_effort = effort(v)?;
         }
         if let Some(t) = s.github_token.filter(|t| !t.is_empty()) {
             local.github_token_ref = Some(secrets::store("github", &t).await?);
@@ -1138,6 +1160,7 @@ impl Engine {
             prompt: prompts::context(&prd, &pack, &base_ref),
             cwd: wt,
             model: self.model_for(ws, ModelStep::Prd).await,
+            effort: self.effort_for(ws, ModelStep::Prd).await,
             ..Default::default()
         };
         let run = self
@@ -1288,6 +1311,7 @@ impl Engine {
                 .clone()
                 .unwrap_or_else(|| ws.paths.repo.clone()),
             model: self.model_for(ws, ModelStep::Prd).await,
+            effort: self.effort_for(ws, ModelStep::Prd).await,
             ..Default::default()
         };
         let run = self
@@ -1339,6 +1363,7 @@ impl Engine {
                     .clone()
                     .unwrap_or_else(|| ws.paths.repo.clone()),
                 model: engine.model_for(&ws, ModelStep::Prd).await,
+                effort: engine.effort_for(&ws, ModelStep::Prd).await,
                 resume_session: g.session_id.clone(),
                 ..Default::default()
             };
@@ -1385,6 +1410,7 @@ impl Engine {
                 .clone()
                 .unwrap_or_else(|| ws.paths.repo.clone()),
             model: self.model_for(ws, ModelStep::Prd).await,
+            effort: self.effort_for(ws, ModelStep::Prd).await,
             resume_session: g.session_id.clone(),
             ..Default::default()
         };
@@ -1485,6 +1511,7 @@ impl Engine {
                 prompt: "The person wants to clarify more before approving. Ask the next most useful question.".to_string() + "\n" + &prompts::grill_answer("(no answer yet)", false),
                 cwd: prd.worktree.clone().unwrap_or_else(|| ws.paths.repo.clone()),
                 model: engine.model_for(&ws, ModelStep::Prd).await,
+                effort: engine.effort_for(&ws, ModelStep::Prd).await,
                 resume_session: g.session_id.clone(),
                 ..Default::default()
             };
@@ -1778,6 +1805,7 @@ impl Engine {
             prompt,
             cwd: prd.worktree.clone().ok_or("the PRD has no worktree")?,
             model: self.model_for(ws, ModelStep::Develop).await,
+            effort: self.effort_for(ws, ModelStep::Develop).await,
             bypass_permissions: true,
             resume_session: if follow_up {
                 prd.develop_session.clone()
@@ -2210,6 +2238,7 @@ impl Engine {
             prompt: prompts::commit_message(prd, &stat, &diff, &hint),
             cwd: wt,
             model: self.model_for(ws, ModelStep::Commit).await,
+            effort: self.effort_for(ws, ModelStep::Commit).await,
             ..Default::default()
         };
         #[derive(Deserialize, Default)]

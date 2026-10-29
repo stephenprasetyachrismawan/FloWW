@@ -8,6 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { api } from "@/lib/api";
 import { useAction, useStore } from "@/lib/store";
 
+const EFFORTS = [
+  { value: "low", label: "Low", why: "Fastest" },
+  { value: "medium", label: "Medium", why: "Balanced" },
+  { value: "high", label: "High", why: "Thinks longer" },
+  { value: "xhigh", label: "Extra high", why: "Slower, for hard changes" },
+  { value: "max", label: "Max", why: "Slowest" },
+];
+
 const NOTES: Record<string, string> = { "claude-opus-5-5": "Strongest, slower", "claude-sonnet-5-5": "Balanced", "claude-haiku-5-5": "Fast and cheap" };
 
 export function SettingsPage() {
@@ -34,6 +42,8 @@ export function SettingsPage() {
       http_port: c.workspace.http_port,
       model: c.workspace.models.default ?? "",
       develop_model: c.workspace.models.develop ?? "default",
+      effort: c.workspace.models.effort ?? "default",
+      develop_effort: c.workspace.models.develop_effort ?? "default",
       github_token: "",
     });
   }, [workspace]);
@@ -54,6 +64,8 @@ export function SettingsPage() {
           http_port: Number(f.http_port),
           model: f.model,
           develop_model: f.develop_model,
+          effort: f.effort,
+          develop_effort: f.develop_effort,
           github_token: f.github_token || undefined,
         }),
       "Settings saved",
@@ -145,6 +157,41 @@ export function SettingsPage() {
               <SelectContent>
                 <SelectItem value="default">Same as above</SelectItem>
                 {modelItems}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13.5px] font-semibold text-ink">Effort</span>
+            <Select value={String(f.effort ?? "default")} onValueChange={set("effort")}>
+              <SelectTrigger aria-label="Effort">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default" description="Whatever Claude Code uses">
+                  Claude Code default
+                </SelectItem>
+                {EFFORTS.map((e) => (
+                  <SelectItem key={e.value} value={e.value} description={e.why}>
+                    {e.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-[12.5px] text-faint">Lower is faster and cheaper; higher thinks longer.</span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13.5px] font-semibold text-ink">Effort for building</span>
+            <Select value={String(f.develop_effort ?? "default")} onValueChange={set("develop_effort")}>
+              <SelectTrigger aria-label="Effort for building">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Same as above</SelectItem>
+                {EFFORTS.map((e) => (
+                  <SelectItem key={e.value} value={e.value} description={e.why}>
+                    {e.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

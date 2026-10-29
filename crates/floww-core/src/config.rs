@@ -135,7 +135,14 @@ pub struct Models {
     pub develop: Option<String>,
     pub brain: Option<String>,
     pub commit: Option<String>,
+    /// Claude Code effort for every step; None keeps Claude Code's default.
+    pub effort: Option<String>,
+    /// Effort for building only; None means the same as `effort`.
+    pub develop_effort: Option<String>,
 }
+
+/// Effort levels Claude Code accepts.
+pub const EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
@@ -230,6 +237,17 @@ impl EffectiveConfig {
     }
 }
 
+impl EffectiveConfig {
+    pub fn effort_for(&self, step: ModelStep) -> Option<&str> {
+        let m = &self.workspace.models;
+        let specific = match step {
+            ModelStep::Develop => m.develop_effort.as_deref(),
+            _ => None,
+        };
+        specific.or(m.effort.as_deref())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModelStep {
     Prd,
@@ -291,6 +309,20 @@ mod tests {
         assert_eq!(cfg.team.base_branch, "preprod");
         assert_eq!(cfg.team.steps.develop.skills, vec!["tdd", "sdd"]);
         assert_eq!(cfg.workspace.ai, None);
+    }
+
+    #[test]
+    fn effort_for_building_falls_back_to_the_default() {
+        let mut ws = WorkspaceConfig::default();
+        let cfg = EffectiveConfig::merge(TeamConfig::default(), ws.clone());
+        assert_eq!(cfg.effort_for(ModelStep::Develop), None);
+        ws.models.effort = Some("low".into());
+        let cfg = EffectiveConfig::merge(TeamConfig::default(), ws.clone());
+        assert_eq!(cfg.effort_for(ModelStep::Develop), Some("low"));
+        ws.models.develop_effort = Some("high".into());
+        let cfg = EffectiveConfig::merge(TeamConfig::default(), ws);
+        assert_eq!(cfg.effort_for(ModelStep::Develop), Some("high"));
+        assert_eq!(cfg.effort_for(ModelStep::Prd), Some("low"));
     }
 
     #[test]

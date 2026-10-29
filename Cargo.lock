@@ -1106,7 +1106,7 @@ dependencies = [
 
 [[package]]
 name = "floww"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "floww-engine",
  "floww-server",
@@ -1121,7 +1121,7 @@ dependencies = [
 
 [[package]]
 name = "floww-core"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "serde",
  "serde_json",
@@ -1132,7 +1132,7 @@ dependencies = [
 
 [[package]]
 name = "floww-engine"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "chrono",
  "floww-core",
@@ -1151,7 +1151,7 @@ dependencies = [
 
 [[package]]
 name = "floww-server"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "axum",
  "floww-core",

@@ -24,6 +24,8 @@ pub struct Request {
     pub prompt: String,
     pub cwd: PathBuf,
     pub model: Option<String>,
+    /// Claude Code `--effort` (low, medium, high, xhigh, max). None: Claude Code's default.
+    pub effort: Option<String>,
     pub resume_session: Option<String>,
     pub append_system_prompt: Option<String>,
     /// Let Claude edit and run commands without asking (develop and setup steps).
@@ -47,6 +49,9 @@ pub fn build(req: &Request, auth: &AiAuth, router_token: Option<&str>) -> Invoca
     ];
     if let Some(model) = &req.model {
         args.extend(["--model".into(), model.clone()]);
+    }
+    if let Some(effort) = &req.effort {
+        args.extend(["--effort".into(), effort.clone()]);
     }
     if let Some(session) = &req.resume_session {
         args.extend(["--resume".into(), session.clone()]);
@@ -189,6 +194,10 @@ mod tests {
                 .any(|w| w == ["--model", "claude-sonnet-5-5"])
         );
         assert!(
+            !inv.args.iter().any(|a| a == "--effort"),
+            "no effort unless set"
+        );
+        assert!(
             inv.args
                 .windows(2)
                 .any(|w| w == ["--output-format", "stream-json"])
@@ -219,8 +228,10 @@ mod tests {
         let mut r = req();
         r.resume_session = Some("abc".into());
         r.bypass_permissions = true;
+        r.effort = Some("high".into());
         let inv = build(&r, &AiAuth::Subscription, None);
         assert!(inv.args.windows(2).any(|w| w == ["--resume", "abc"]));
+        assert!(inv.args.windows(2).any(|w| w == ["--effort", "high"]));
         assert!(
             inv.args
                 .windows(2)

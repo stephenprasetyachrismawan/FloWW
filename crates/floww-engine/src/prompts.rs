@@ -135,7 +135,7 @@ pub fn develop(prd: &Prd, pack: &Pack, test_command: &str) -> String {
         })
         .collect();
     format!(
-        "{head}{req}\n## PRD (the spec)\n{prd_md}\n\n## Acceptance criteria\n{criteria}\nBuild this PRD in this worktree.\n- The PRD and the criteria are the spec. Build what they ask, nothing more.\n- Work test-first: write a failing test for each criterion, then make it pass.\n- Module tests: `{test_command}`\n- Commit locally as you go: `wip({id}): <what>`.\n{end}",
+        "{head}{req}\n## PRD (the spec)\n{prd_md}\n\n## Acceptance criteria\n{criteria}\nBuild this PRD in this worktree.\n- The PRD and the criteria are the spec. Build what they ask, nothing more.\n- Work test-first: write a failing test for each criterion, then make it pass.\n- Module tests: `{test_command}`\n- Tests that already failed before your change are not yours: leave them alone and do not count them.\n- Commit locally as you go: `wip({id}): <what>`.\n{end}",
         head = pack.head(),
         req = request_block(prd),
         prd_md = prd.prd_markdown.as_deref().unwrap_or(""),
@@ -154,8 +154,7 @@ pub fn develop_follow_up(prd: &Prd, notes: &[String], test_command: &str) -> Str
     )
 }
 
-const TESTS_LINE_ASK: &str =
-    "End your reply with one line: `TESTS: PASS`, or `TESTS: FAIL: <what still fails>`.";
+const TESTS_LINE_ASK: &str = "End your reply with one line: `TESTS: PASS` when your new or changed tests pass and nothing that passed before now fails (tests that already failed before do not count), or `TESTS: FAIL: <what still fails>`.";
 
 /// What the develop session said about the tests.
 #[derive(Debug, Clone, PartialEq)]
